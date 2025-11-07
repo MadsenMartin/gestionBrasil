@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión Quinto Diseño - Documentos</title>
+    {% load static %}
+    <link rel="icon" type="image/x-icon" href="{% static 'iva/iconos/icono.ico' %}">
+    <link rel="stylesheet" href="{% static 'iva/styles.css' %}">
+</head>
+
+<body>
+    
+    {% block content %}
+    <div class="container">
+        <main class="invoice-list">
+            <header style="display: flex; justify-content: space-between; align-items: center;">
+                <h1 style="margin: 0;">{{titulo}}</h1>
+                <div style="display: flex; gap: 10px;">
+                    {% load gestion_extras %}
+                    {% if request.user|has_group:"Administracion" %}
+                    {% if titulo == "Documentos Cargados" %}
+                    <a href="{% url 'iva:eliminados' %}"><button id="toggleForm" class="toggle-form-btn">Documentos Eliminados</button></a>
+                    {% else %}
+                    <a href="{% url 'iva:index' %}"><button id="toggleForm" class="toggle-form-btn">Documentos Cargados</button></a>
+                    {% endif %}
+                    {% endif %}
+                    <a href="{% url 'iva:carga' %}"><button id="toggleForm" class="toggle-form-btn">Cargar Nuevo Documento</button></a>
+                </div>
+            </header>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Fecha</th>
+                        <th>Proveedor</th>                        
+                        <th>Receptor</th>
+                        <th>PV</th>
+                        <th>Número</th>
+                        <th>Comentario</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for documento in documentos %}
+                    <tr>
+                        <td>{{ documento.tipo_documento.tipo_documento }}</td>
+                        <td>{{ documento.fecha_documento }}</td>
+                        <td>{{ documento.proveedor.razon_social }}</td>
+                        <td>{{ documento.receptor.razon_social }}</td>
+                        <td>{{ documento.serie }}</td>
+                        <td>{{ documento.numero }}</td>
+                        <td>{{ documento.comentario }}</td>
+                        <td>
+                            <a href="{% url 'iva:detalle' documento.id %}"><img src="{% static 'iva/iconos/ver.png' %}" alt="Ver" style="width:16px; height:16px;"></a>
+                            {% if titulo == "Documentos Cargados" %}
+                            <a href="{% url 'iva:actualizar' documento.id %}"><img src="{% static 'iva/iconos/actualizar.png' %}" alt="Actualizar" style="width:16px; height:16px;"></a>
+                            {% if request.user|has_group:"Administracion" %}
+                            <a href="{% url 'iva:eliminar' documento.id %}"><img src="{% static 'iva/iconos/1345874.png' %}" alt="Eliminar" style="width:16px; height:16px;"></a>
+                            {% endif %}
+                            {% endif %}
+                            {% if request.user|has_group:"Administracion" %}
+                            <a href="{% url 'iva:historial' documento.id %}"><img src="{% static 'iva/iconos/historial.png' %}" alt="Historial" style="width:16px; height:16px;"></a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        </main>
+    </div>
+    {% endblock %}
+</body>
+<a href="{% url 'inicio' %}">
+    <img src="{% static 'gestion/iconos/jt.png' %}" alt="Inicio" style="position: fixed; bottom: 10px; left: 10px; width: 50px; height: 50px; z-index: 1000;">
+</a>
+</html>

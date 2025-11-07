@@ -1,0 +1,1 @@
+Estimado/a {{ usuario.username }}, Se ha creado un nuevo presupuesto: - Presupuesto: {{ presupuesto }} - Monto: ${{ presupuesto.monto|default:"N/A" }} Para revisar y aprobar/rechazar este presupuesto, haga clic en el siguiente enlace: https://gestion.estudiotrivelloni.com.ar/presupuestos/ Este es un mensaje automático, por favor no responda a este correo.

@@ -1,0 +1,26 @@
+# Django migrations
+**/migrations/*.py
+!**/migrations/__init__.py
+!**/migrations/
+
+/__pycache__/
+__pycache__/
+
+media/
+/media
+/Backend/iva/management/commands/Facturas/
+.pyc
+**.pyc
+*.pyc
+*.csv
+*.log
+__pycache__
+/.vscode/
+/backup_data.json
+*.env
+Backend/scp.ps1
+Backend/deploy_django.ps1
+Backend/deploy_tesoreria.ps1
+Frontend/deploy_vite.ps1
+
+

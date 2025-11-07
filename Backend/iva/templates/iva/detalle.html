@@ -1,0 +1,37 @@
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión Quinto Diseño - Detalle documento</title>
+    {% load static %}
+    <link rel="icon" type="image/x-icon" href="{% static 'iva/iconos/icono.ico' %}">
+</head>
+<div style="font-family: Arial, sans-serif; max-width: 1920px; margin: 0 auto; padding: 20px;">
+    <h1 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 10px;">Detalle del documento</h1>
+    
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; margin-top: 20px;">
+        <div style="flex: 1; min-width: 300px; max-width: 400px;background-color: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h2 style="color: #444; margin-bottom: 15px;">Información de la Factura</h2>
+            <p><strong style="color: #666;">Proveedor:</strong> <span style="color: #333;">{{ documento.proveedor }}</span></p>
+            <p><strong style="color: #666;">Fecha:</strong> <span style="color: #333;">{{ documento.fecha_documento }}</span></p>
+            <p><strong style="color: #666;">Tipo:</strong> <span style="color: #333;">{{ documento.tipo_documento.tipo_documento }}</span></p>
+            <p><strong style="color: #666;">Serie:</strong> <span style="color: #333;">{{ documento.serie }}</span></p>
+            <p><strong style="color: #666;">Número:</strong> <span style="color: #333;">{{ documento.numero }}</span></p>
+        </div>
+        
+        <div style="flex: 1; min-width: 300px; min-height: 820;max-width: 1400px; margin-top: 20px; margin-right: 20px; margin-left: 20px;text-align: center;">
+            {% if documento.archivo %}
+            <object
+            data="{{ documento.archivo.url }}"
+            type="application/pdf"
+            width="100%"
+            height="100%"
+        >
+            <p>Este documento o tu dispositivo no permite la vista previa. Podés <a href="{{ documento.archivo.url }}" target="_blank" rel="noopener noreferrer">abrirlo en una pestaña nueva</a>.</p>
+            </object>
+            {% else %}
+            <p style="color: #666; font-style: italic; background-color: #f9f9f9; padding: 20px; border-radius: 8px;">No hay imagen disponible para esta factura.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>

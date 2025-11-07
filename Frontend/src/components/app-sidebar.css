@@ -1,0 +1,20 @@
+/* Estilos para el Sidebar normal */
+.Sidebar {
+    width: 250px;
+    transition: width 0.3s ease;
+  }
+  
+  /* Estilos para el Sidebar colapsado */
+  .Sidebar.collapsed {
+    width: 80px;
+  }
+  
+  .Sidebar span {
+    display: inline-block;
+    transition: opacity 0.3s ease;
+  }
+  
+  /* Ocultar texto cuando el sidebar está colapsado */
+  .Sidebar.collapsed span {
+    opacity: 0;
+  }

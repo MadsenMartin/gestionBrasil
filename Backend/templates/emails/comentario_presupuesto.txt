@@ -1,0 +1,1 @@
+Estimado/a {{ mencionado.username }}, {{ comentario.usuario }} te mencionó en un comentario en el presupuesto {{ presupuesto }} Para ver el listado de presupuestos, haga clic en el siguiente enlace: https://gestion.estudiotrivelloni.com.ar/presupuestos/ Este es un mensaje automático, por favor no responda a este correo.

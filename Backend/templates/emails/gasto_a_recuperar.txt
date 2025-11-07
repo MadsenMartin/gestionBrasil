@@ -1,0 +1,18 @@
+Estimado/a {{ usuario.username }},
+
+Se ha registrado un nuevo gasto que debe ser recuperado del cliente:
+
+- Unidad de Negocio: {{ unidad_negocio }}
+- Cliente/Proyecto: {{ registro.cliente_proyecto }}
+- Tipo de registro: {{ registro.get_tipo_reg_display }}
+- Fecha: {{ registro.fecha_reg|date:"d/m/Y" }}
+- Proveedor: {{ registro.proveedor|default:"N/A" }}
+- Observación: {{ registro.observacion|default:"Sin observaciones" }}
+- Monto neto: ${% if registro.monto_gasto_ingreso_neto %}{{ registro.monto_gasto_ingreso_neto|floatformat:2 }}{% else %}N/A{% endif %}
+- IVA: ${% if registro.iva_gasto_ingreso %}{{ registro.iva_gasto_ingreso|floatformat:2 }}{% else %}N/A{% endif %}
+- Total: ${{ registro.total_gasto_ingreso|floatformat:2 }}
+
+Para revisar este gasto, ingrese al sistema de gestión:
+https://gestion.estudiotrivelloni.com.ar/
+
+Este es un mensaje automático, por favor no responda a este correo.
