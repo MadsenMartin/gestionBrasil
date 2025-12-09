@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
-    postgres-client \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar requirements e instalar dependencias de Python
