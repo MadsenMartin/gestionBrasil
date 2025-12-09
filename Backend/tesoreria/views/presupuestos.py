@@ -14,10 +14,10 @@ from ..serializers import (
     ComentarioSerializer, ConsumoPresupuestoSerializer, RegistroSerializer
 )
 from ..serializers.archivos import ArchivoSerializer
-from ..permisos import Administracion3, Administracion2
 from tesoreria.mails import mail_mencion_comentario_presupuesto
 from django.contrib.auth.models import User
 import threading
+from rest_framework.permissions import IsAuthenticated
 
 
 class DbPresupuestosV2FilterSet(FilterSet):
@@ -62,7 +62,7 @@ class PresupuestoListView(generics.ListCreateAPIView):
     Vista dedicada para listar y crear presupuestos usando DbPresupuestosV2 para GET
     y Presupuesto para POST.
     """
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     filter_backends = [filters.OrderingFilter, filters.SearchFilter, drf_filters.DjangoFilterBackend]
     filterset_class = DbPresupuestosV2FilterSet
     
@@ -119,7 +119,7 @@ class PresupuestoListView(generics.ListCreateAPIView):
 
 class PresupuestoDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Vista dedicada para ver, actualizar y eliminar presupuestos individuales"""
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     serializer_class = PresupuestoSerializer
     queryset = Presupuesto.objects.filter(activo=True)
     filter_backends = [drf_filters.DjangoFilterBackend]
@@ -201,7 +201,7 @@ class PresupuestoDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class CargaArchivoPresupuesto(APIView):
     """Vista para cargar archivos a un presupuesto"""
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
@@ -236,7 +236,7 @@ class CargaArchivoPresupuesto(APIView):
 
 class ComentarioPresupuesto(APIView):
     """Vista para manejar comentarios de presupuestos"""
-    permission_classes = [Administracion3, permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
@@ -302,7 +302,7 @@ class ComentarioPresupuesto(APIView):
 
 class ActividadPresupuesto(APIView):
     """Vista para obtener la actividad completa de un presupuesto"""
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         presupuesto_id = request.query_params.get('presupuesto_id')
@@ -351,7 +351,7 @@ class ActividadPresupuesto(APIView):
 
 class EstadoPresupuestoCreateView(generics.CreateAPIView):
     """Vista para crear nuevos estados de presupuesto"""
-    permission_classes = [Administracion2]
+    permission_classes = [IsAuthenticated]
     serializer_class = EstadoPresupuestoCreateSerializer
 
     @transaction.atomic
@@ -387,7 +387,7 @@ class EstadoPresupuestoCreateView(generics.CreateAPIView):
 
 class EstadoPresupuestoChoicesList(APIView):
     """Vista para obtener las opciones de estado de presupuesto"""
-    permission_classes = [Administracion3, permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, permissions.IsAuthenticated]
 
     def get(self, request):
         return Response(EstadoPresupuesto.estado_presupuesto_choices)
@@ -395,7 +395,7 @@ class EstadoPresupuestoChoicesList(APIView):
 
 class HistorialPresupuesto(APIView):
     """Vista para obtener el historial de estados de un presupuesto"""
-    permission_classes = [Administracion3, permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, permissions.IsAuthenticated]
 
     def get_historial(self, pk):
         try:
@@ -411,7 +411,7 @@ class HistorialPresupuesto(APIView):
 
 class ListadoConsumosPresupuesto(APIView):
     """Vista para listar los consumos de un presupuesto"""
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         presupuesto_id = request.query_params.get('presupuesto')
@@ -425,7 +425,7 @@ class ListadoConsumosPresupuesto(APIView):
 
 class ListadoConsumosFueraPresupuesto(APIView):
     """Vista para listar los consumos que coinciden con el proveedor y cliente/proyecto de un presupuesto pero están fuera del mismo"""
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         presupuesto_id = request.query_params.get('presupuesto')

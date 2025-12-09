@@ -62,11 +62,9 @@ def alerta_gasto_a_recuperar(sender, instance, **kwargs):
 
 
 # Este decorador permite que la función que lo precede sea llamada cada vez que se guarde un objeto de la clase Presupuesto
-@receiver(post_save, sender=Presupuesto)
+'''@receiver(post_save, sender=Presupuesto)
 def crear_tareas_aprobacion(sender, instance, created, **kwargs):
-    '''
-    Esta función crea una tarea para cada usuario que pertenezca al grupo 'Administración - 1' cada vez que se crea un presupuesto.
-    '''
+    # Esta función crea una tarea para cada usuario que pertenezca al grupo 'Administración - 1' cada vez que se crea un presupuesto.
     if created:
         # Los usuarios que pertenecen al grupo 'Administración - 1' son los aprobadores de presupuestos, por lo que reciben esta tarea
         aprobadores = User.objects.filter(groups__name='Administración - 1')
@@ -94,9 +92,7 @@ def crear_tareas_aprobacion(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=EstadoPresupuesto)
 def marcar_tarea_aprobacion_como_realizada(sender, instance: EstadoPresupuesto, created, **kwargs):
-    '''
-    Esta función marca como realizada la tarea de aprobación de presupuesto cada vez que se crea una instancia de EstadoPresupuesto donde estado es aprobado o rechazado.
-    '''
+    # Esta función marca como realizada la tarea de aprobación de presupuesto cada vez que se crea una instancia de EstadoPresupuesto donde estado es aprobado o rechazado.
     if created:
         if instance.estado == APROBADO:
             tareas = Tarea.objects.filter(presupuesto=instance.presupuesto)
@@ -115,4 +111,4 @@ def marcar_tarea_aprobacion_como_realizada(sender, instance: EstadoPresupuesto, 
                 Notificacion.objects.create(
                     usuario=tarea.asignado_a,
                     mensaje=f"Presupuesto rechazado por {instance.usuario.username}: {instance.presupuesto}",
-                )
+                )'''

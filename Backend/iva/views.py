@@ -240,11 +240,7 @@ class DocumentoList(generics.ListCreateAPIView):
     ordering_fields = search_fields + ['id', 'tipo_documento']
 
     def get_queryset(self):
-        base_queryset = Documento.objects.filter(activo=True).order_by('-fecha_documento', 'id')
-        if self.request.user.groups.filter(name='Administración - 4').exists():
-            empresa_razon_social = os.environ.get("EMPRESA_RAZON_SOCIAL", "Quinto Diseño SRL")
-            return base_queryset.filter(proveedor__empleado=False).exclude(proveedor__razon_social=empresa_razon_social)
-        else: return base_queryset
+        return Documento.objects.filter(activo=True).order_by('-fecha_documento', 'id')
 
     @transaction.atomic
     def post(self, request):

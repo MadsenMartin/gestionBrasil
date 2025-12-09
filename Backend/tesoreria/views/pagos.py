@@ -6,7 +6,7 @@ from tesoreria.models import PagoFactura, Caja
 from iva.models import ClienteProyecto, Documento, EstadoDocumento, Imputacion, Persona
 from tesoreria.serializers import PagoFacturaSerializer, PagoManoDeObraSerializer, RegistroCrudSerializer, PagoUISerializer, PagoSerializer, RetencionSerializer
 from tesoreria.models import Registro
-from tesoreria.permisos import Administracion3
+from rest_framework.permissions import IsAuthenticated
 from iva.utils import registro_desde_documento_real, registro_desde_documento_temporal, registros_percepciones
 from tesoreria.views import handle_proveedor_search
 from tesoreria.opdf import generar_pdf_orden_pago
@@ -20,10 +20,10 @@ from django_filters import rest_framework as drf_filters
 class PagoDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = PagoFactura.objects.all()
     serializer_class = PagoFacturaSerializer
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
 
 class NuevoPagoMDO(APIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     """
     Clase para registrar un pago de mano de obra
     """
@@ -65,7 +65,7 @@ class NuevoPagoMDO(APIView):
     
 class PagosList(generics.ListCreateAPIView):
     serializer_class = PagoUISerializer
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, drf_filters.DjangoFilterBackend]
     search_fields = ['registros_pago__proveedor__razon_social', 'registros_pago__proveedor__nombre_fantasia',
                       'registros_pago__proveedor__cnpj', 'fecha_pago',
@@ -109,7 +109,7 @@ class PagosList(generics.ListCreateAPIView):
         return queryset'''
 
 class ProcessPaymentView(APIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
@@ -310,7 +310,7 @@ class TransferenciaMasivaPorArchivo(APIView):
     ## Métodos:
         get(request): Procesa la solicitud POST para generar un archivo de transferencia masiva.
     """
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         try:
             op_id_array = request.query_params.get('op')

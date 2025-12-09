@@ -22,11 +22,11 @@ from django.db.models.functions import Coalesce
 from rest_framework.exceptions import ValidationError
 from .. import recibopdf
 from rest_framework.pagination import PageNumberPagination
-from ..permisos import Administracion3
 from django_filters import rest_framework as drf_filters
 from decimal import Decimal
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 
 class RegistroPagination(PageNumberPagination):
     page_size = 30
@@ -35,7 +35,7 @@ class RegistroPagination(PageNumberPagination):
 
 class RegistroViewSet(ModelViewSet):
     serializer_class = RegistroListSerializer
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     pagination_class = RegistroPagination
     filter_backends = [filters.SearchFilter, drf_filters.DjangoFilterBackend]
     search_fields = [
@@ -205,7 +205,7 @@ class RegistroViewSet(ModelViewSet):
 
 
 class TipoRegList(APIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     pagination_class = RegistroPagination
 
     def get(self, request):
@@ -218,7 +218,7 @@ class TipoRegList(APIView):
 class CuentasCorrientesProveedores(generics.ListAPIView):
     serializer_class = CuentaCorrienteProveedorSerializer
     queryset = Documento.objects.all()
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         cuentas_corrientes = []
@@ -246,7 +246,7 @@ class CuentasCorrientesProveedores(generics.ListAPIView):
 class CuentasCorrientesClientes(generics.ListAPIView):
     serializer_class = CuentaCorrienteClienteSerializer
     queryset = Registro.objects.all()
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         cuentas_corrientes = []
         registros = Registro.objects.exclude(caja__caja='Facturas')
@@ -277,7 +277,7 @@ class CuentasCorrientesClientes(generics.ListAPIView):
 class CajaList(generics.ListCreateAPIView):
     queryset = Caja.objects.all().order_by('-id')
     serializer_class = CajaSerializer
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     filter_backends = [filters.OrderingFilter, filters.SearchFilter, drf_filters.DjangoFilterBackend]
     filterset_fields = {
          'caja': ['icontains', 'isnull', 'exact'],
@@ -289,7 +289,7 @@ class CajaList(generics.ListCreateAPIView):
 class CajaDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Caja.objects.all()
     serializer_class = CajaSerializer
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
 
 '''
 Método para que se pueda buscar por razon_social y por nombre_fantasia en simultaneo TODO: Reemplazar implementaciones por filter backend de django
@@ -302,7 +302,7 @@ def handle_proveedor_search(param, value, queryset):
         return queryset.filter(**{param: value})
 
 class MovimientoEntreCuentas(APIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     @transaction.atomic
     def post(self, request): #TODO: MC cajas distintas monedas
         serializer = MovimientoEntreCuentasSerializer(data=request.data)
@@ -371,7 +371,7 @@ class MovimientoEntreCuentas(APIView):
             return Response({'error de serializer' + serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 class CobranzasList(generics.ListCreateAPIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     def get_queryset(self):
         queryset = Registro.objects.filter(activo=True, tipo_reg__in=['FCV', 'REC','ISF','RETS']).order_by('id')
         for param in self.request.query_params:
@@ -390,7 +390,7 @@ class CobranzasList(generics.ListCreateAPIView):
     serializer_class = RegistroSerializer
 
 class ProcesarCobroCertificado(APIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     @transaction.atomic
     def post(self, request):
         try:
@@ -445,7 +445,7 @@ class ProcesarCobroCertificado(APIView):
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class RealizarRegistro(APIView): # TODO: analizar que pasa con la lógica de TC al cambiar la fecha
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     @transaction.atomic
     def post(self, request, **kwargs):
         try:
@@ -469,7 +469,7 @@ class RealizarRegistro(APIView): # TODO: analizar que pasa con la lógica de TC 
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
             
 class CertificadosList(generics.ListCreateAPIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     serializer_class = CertificadoSerializer
 
     def get_queryset(self,):
@@ -514,7 +514,7 @@ class CertificadosList(generics.ListCreateAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CertificadoDetail(generics.RetrieveUpdateDestroyAPIView): 
-    permission_classes = [Administracion3]  
+    permission_classes = [IsAuthenticated]  
     queryset = CertificadoObra.objects.filter(activo=True)
     serializer_class = CertificadoSerializer
     @transaction.atomic
@@ -579,7 +579,7 @@ class PagosPeriodicos(APIView):
         pass
 
 class DolarMEPList(generics.ListCreateAPIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     """
     Clase para listar y crear cotizaciones de dólar MEP
     """
@@ -718,7 +718,7 @@ class DolarMEPList(generics.ListCreateAPIView):
         return super().post(request)
     
 class DolarMEPDetail(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     """
     Clase para ver, actualizar y eliminar cotizaciones de dólar MEP
     """
@@ -761,7 +761,7 @@ class DolarMEPDetail(generics.RetrieveUpdateDestroyAPIView):
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class ConciliacionCajaView(generics.ListCreateAPIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     """
     Clase para listar y crear conciliaciones de caja
     """
@@ -769,7 +769,7 @@ class ConciliacionCajaView(generics.ListCreateAPIView):
     serializer_class = ConciliacionCajaSerializer
 
 class ConciliacionCajaData(APIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     """
     Clase para obtener los registros sin conciliar
     """
@@ -792,7 +792,7 @@ class ConciliacionCajaData(APIView):
         return Response(registros_data)
     
 class GenerarReciboRegistro(APIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     """
     Clase para generar un recibo a partir de un registro
     """
@@ -817,7 +817,7 @@ class GenerarReciboRegistro(APIView):
         return response
 
 class ImputacionFacturas(APIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     """
     Clase que recibe una lista de facturas y prespuestos para crear los registros correspondientes
     """
@@ -839,7 +839,7 @@ class ImputacionFacturas(APIView):
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
 class RegistrosAsociados(APIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     '''
     Clase que retorna las instancias de los distintos modelos asociados a un registro
     '''
@@ -920,7 +920,7 @@ class TareaDetail(generics.RetrieveUpdateDestroyAPIView):
         pass
 
 class PlantillaRegistroList(generics.ListCreateAPIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     """
     Clase para listar y crear plantillas de registro
     """
@@ -939,7 +939,7 @@ class PlantillaRegistroList(generics.ListCreateAPIView):
     serializer_class = PlantillaRegistroSerializer
 
 class PlantillaRegistroDetail(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     """
     Clase para ver, actualizar y eliminar plantillas de registro
     """
@@ -970,7 +970,7 @@ class SubirArchivoRegistro(APIView):
             return Response({'error': str(e)}, status=400)
         
 class FCI(APIView):
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     """
     Clase para generar movimientos entre el banco y el fondo de inversión
     """

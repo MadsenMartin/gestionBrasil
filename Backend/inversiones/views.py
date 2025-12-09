@@ -1,7 +1,7 @@
 from .models import Inversor, PorcentajeInversion, AsientoInversor
 from .serializers import InversorSerializer, PorcentajeInversionSerializer, AsientoInversorSerializer, AsientoInversorListSerializer
 from rest_framework import viewsets
-from tesoreria.permisos import Administracion3
+from rest_framework.permissions import IsAuthenticated
 from rest_framework import filters, status
 from django_filters import rest_framework as drf_filters
 from rest_framework.response import Response
@@ -9,7 +9,7 @@ from rest_framework.response import Response
 class InversorViewSet(viewsets.ModelViewSet):
     queryset = Inversor.objects.all().order_by('-id')
     serializer_class = InversorSerializer
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, drf_filters.DjangoFilterBackend]
     search_fields = ['nombre']
     filterset_fields = ['nombre']
@@ -18,7 +18,7 @@ class InversorViewSet(viewsets.ModelViewSet):
 class PorcentajeInversionViewSet(viewsets.ModelViewSet):
     queryset = PorcentajeInversion.objects.all().order_by('-id')
     serializer_class = PorcentajeInversionSerializer
-    permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, drf_filters.DjangoFilterBackend]
     fields = ['inversor__nombre', 'proyecto__cliente_proyecto', 'porcentaje']
     search_fields = fields
@@ -27,7 +27,7 @@ class PorcentajeInversionViewSet(viewsets.ModelViewSet):
 
 class AsientoInversorViewSet(viewsets.ModelViewSet):
     queryset = AsientoInversor.objects.all().order_by('-id')
-    #permission_classes = [Administracion3]
+    permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, drf_filters.DjangoFilterBackend]
     fields = ['inversor__nombre', 'registro__cliente_proyecto__cliente_proyecto', 'tipo_asiento']
     search_fields = fields
