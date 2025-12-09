@@ -1,0 +1,12 @@
+FROM nginx:alpine
+
+# Copiar script de entrada
+COPY nginx/docker-entrypoint-nginx.sh /docker-entrypoint-nginx.sh
+RUN chmod +x /docker-entrypoint-nginx.sh
+
+# Copiar templates
+COPY nginx/nginx-initial.conf.template /etc/nginx/templates/nginx-initial.conf.template
+COPY nginx/nginx.conf.template /etc/nginx/templates/nginx.conf.template
+
+ENTRYPOINT ["/docker-entrypoint-nginx.sh"]
+CMD ["nginx", "-g", "daemon off;"]
