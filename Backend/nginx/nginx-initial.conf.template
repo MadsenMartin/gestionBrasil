@@ -8,6 +8,7 @@ server {
         root /var/www/certbot;
     }
 
+    # API Backend Django (todas las rutas)
     location / {
         set $backend_upstream backend:8000;
         proxy_pass http://$backend_upstream;
@@ -17,10 +18,12 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Archivos estáticos de Django
     location /static/ {
         alias /var/www/gestionBrasil/static/;
     }
 
+    # Archivos media de Django
     location /media/ {
         alias /var/www/gestionBrasil/media/;
     }

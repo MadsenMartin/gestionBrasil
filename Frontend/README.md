@@ -1,50 +1,119 @@
-# React + TypeScript + Vite
+# Frontend - Nginx + SSL
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Contenedor Docker con nginx para servir el frontend React con SSL automático vía Let's Encrypt.
 
-Currently, two official plugins are available:
+## Estructura
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```
+Frontend/
+├── build/                      # Archivos del build de React (copiar con SCP)
+├── nginx/
+│   └── nginx.conf.template    # Configuración de nginx
+├── docker-compose.yml          # Definición de servicios
+├── .env.example               # Variables de entorno
+└── README.md                  # Este archivo
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Setup inicial
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+### 1. Configurar variables de entorno
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+```bash
+cp .env.example .env
+nano .env
 ```
+
+Edita:
+```env
+DOMAIN_NAME=app.brasil.estudiotrivelloni.com.ar
+SSL_EMAIL=tu@email.com
+```
+
+### 2. Apuntar DNS al servidor
+
+```bash
+nslookup app.brasil.estudiotrivelloni.com.ar
+```
+
+### 3. Crear build inicial
+
+```bash
+mkdir -p build
+echo '<!DOCTYPE html><html><body><h1>Frontend</h1></body></html>' > build/index.html
+```
+
+### 4. Iniciar servicios
+
+```bash
+docker-compose up -d
+```
+
+### 5. Obtener certificado SSL
+
+```bash
+docker-compose exec certbot certbot certonly --webroot \
+  --webroot-path=/var/www/certbot \
+  --email tu@email.com \
+  --agree-tos \
+  --no-eff-email \
+  -d app.brasil.estudiotrivelloni.com.ar
+```
+
+### 6. Reiniciar nginx
+
+```bash
+docker-compose restart nginx
+```
+
+## Deploy del frontend
+
+### Build local
+
+```bash
+npm run build
+```
+
+### Copiar al servidor
+
+```bash
+# SCP
+scp -r build/* usuario@servidor:/ruta/Frontend/build/
+
+# rsync (recomendado - más eficiente)
+rsync -avz --delete build/ usuario@servidor:/ruta/Frontend/build/
+```
+
+**Los cambios se aplican inmediatamente sin reiniciar.**
+
+## Comandos útiles
+
+```bash
+# Ver logs
+docker-compose logs -f nginx
+
+# Estado
+docker-compose ps
+
+# Ver certificados
+docker-compose exec certbot certbot certificates
+
+# Renovar certificado
+docker-compose exec certbot certbot renew && docker-compose restart nginx
+
+# Verificar archivos
+docker-compose exec nginx ls -la /usr/share/nginx/html/
+```
+
+## Troubleshooting
+
+### Página en blanco
+```bash
+ls -la build/
+docker-compose exec nginx ls -la /usr/share/nginx/html/
+```
+
+### Caché del navegador
+Ctrl + Shift + R para forzar recarga
+
+### Certificado SSL
+El certificado se renueva automáticamente cada 12 horas

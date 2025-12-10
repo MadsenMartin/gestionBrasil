@@ -1,5 +1,3 @@
-resolver 127.0.0.11 valid=30s;
-
 server {
     listen 80;
     server_name ${DOMAIN_NAME};
@@ -29,23 +27,24 @@ server {
     ssl_session_cache shared:SSL:10m;
     ssl_session_timeout 10m;
 
-    # API Backend Django (todas las rutas)
+    # Servir archivos estáticos de React
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Configuración para React Router (SPA)
     location / {
-        set $backend_upstream backend:8000;
-        proxy_pass http://$backend_upstream;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        try_files $uri $uri/ /index.html;
     }
 
-    # Archivos estáticos de Django
-    location /static/ {
-        alias /var/www/gestionBrasil/static/;
+    # Caché para assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
     }
 
-    # Archivos media de Django
-    location /media/ {
-        alias /var/www/gestionBrasil/media/;
+    # No caché para index.html
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        expires 0;
     }
 }
