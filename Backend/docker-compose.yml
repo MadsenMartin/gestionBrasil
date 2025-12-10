@@ -28,40 +28,11 @@ services:
     volumes:
       - ./static:/app/static
       - ./media:/app/media
-    expose:
-      - 8000
+    ports:
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
 
-  nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile.nginx
-    container_name: gestion_nginx
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./static:/var/www/gestionBrasil/static:ro
-      - ./media:/var/www/gestionBrasil/media:ro
-      - certbot_conf:/etc/letsencrypt:ro
-      - certbot_www:/var/www/certbot:ro
-    environment:
-      - DOMAIN_NAME=${DOMAIN_NAME}
-    depends_on:
-      - backend
-
-  certbot:
-    image: certbot/certbot
-    container_name: gestion_certbot
-    volumes:
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
-
 volumes:
   postgres_data:
-  certbot_conf:
-  certbot_www:
