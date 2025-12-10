@@ -84,32 +84,24 @@ export function DetalleFactura({factura, isOpen, onClose}: DetallePagoProps){ {
                     <InfoField label="Concepto" value={factura.concepto} />
                     <Separator />
                     <InfoField
-                    label="Neto"
+                    label="Total"
                     value={new Intl.NumberFormat('es-AR', {
                         style: 'currency',
                         currency: 'ARS',
-                    }).format(Number(factura.neto))}
+                    }).format(Number(factura.total))}
                     />
                     <Separator />
                     <InfoField
-                    label="IVA"
+                    label="Impuestos retidos"
                     value={new Intl.NumberFormat('es-AR', {
                         style: 'currency',
                         currency: 'ARS',
-                    }).format(Number(factura.iva))}
-                    />
-                    <Separator />
-                    <InfoField
-                    label="Importe total"
-                    value={new Intl.NumberFormat('es-AR', {
-                        style: 'currency',
-                        currency: 'ARS',
-                    }).format(factura.total)}
+                    }).format(Number(factura.impuestos_retidos))}
                     />
                     <Separator />
                     <InfoField label="Moneda" value={factura.moneda_display} />
                     <Separator />
-                    <InfoField label="Tipo de cambio" value={factura.tipo_de_cambio} />
+                    {/*<InfoField label="Tipo de cambio" value={factura.tipo_de_cambio} />*/}
                 </div>
                 </ScrollArea>
             </CardContent>

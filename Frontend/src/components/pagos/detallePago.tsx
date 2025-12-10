@@ -112,32 +112,24 @@ type DetallePagoProps = {
                       <InfoField label="Concepto" value={documento.concepto} />
                       <Separator />
                       <InfoField
-                        label="Neto"
+                        label="Total"
                         value={new Intl.NumberFormat('es-AR', {
                           style: 'currency',
                           currency: 'ARS',
-                        }).format(Number(documento.neto))}
+                        }).format(Number(documento.total))}
                       />
                       <Separator />
                       <InfoField
-                        label="IVA"
+                        label="Impuestos retidos"
                         value={new Intl.NumberFormat('es-AR', {
                           style: 'currency',
                           currency: 'ARS',
-                        }).format(Number(documento.iva))}
-                      />
-                      <Separator />
-                      <InfoField
-                        label="Importe total"
-                        value={new Intl.NumberFormat('es-AR', {
-                          style: 'currency',
-                          currency: 'ARS',
-                        }).format(documento.total)}
+                        }).format(Number(documento.impuestos_retidos))}
                       />
                       <Separator />
                       <InfoField label="Moneda" value={documento.moneda_display} />
                       <Separator />
-                      <InfoField label="Tipo de cambio" value={documento.tipo_de_cambio} />
+                      {/*<InfoField label="Tipo de cambio" value={documento.tipo_de_cambio} />*/}
                     </div>
                   </ScrollArea>
                 </CardContent>

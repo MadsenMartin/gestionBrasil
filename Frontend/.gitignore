@@ -1,9 +1,9 @@
 # Node modules (si llegas a tener proyecto React aquí)
 node_modules/
 
-# Build de React
-build/*
-!build/.gitkeep
+# Build de Vite
+dist/*
+!dist/.gitkeep
 
 # Variables de entorno
 .env

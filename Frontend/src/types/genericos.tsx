@@ -89,8 +89,11 @@ export type Registro = {
     imputacion: string
     concepto: string
     comentario: string | null
+
+    // Montos
     total: number
     impuestos_retidos: number
+    
     moneda: number
     moneda_display: string
     fecha_pago: string | null
