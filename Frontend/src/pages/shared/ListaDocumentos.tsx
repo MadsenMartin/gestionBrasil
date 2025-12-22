@@ -1,5 +1,4 @@
 import { Toaster, toast } from 'sonner';
-import { DropdownMenuGeneral } from "@/components/iva/dropdownGeneral"
 import { TablaDocumentos } from "@/components/documentos/tablaDocumentos"
 
 export function DocumentosView() {
@@ -8,7 +7,7 @@ export function DocumentosView() {
     <div className="mx-auto p-3 w-full">
       <div className="flex justify-between items-center mb-4">
         <div className="flex justify-start">
-          <DropdownMenuGeneral></DropdownMenuGeneral>
+          {/*<DropdownMenuGeneral></DropdownMenuGeneral>*/}
           <h1 className="text-2xl font-bold mb-4">Documentos</h1>
         </div>
       </div>

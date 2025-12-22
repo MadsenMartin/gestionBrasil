@@ -73,7 +73,7 @@ export function TablaDocumentos({ toast }: TablaDocumentosProps) {
               />
               <Button variant="outline" onClick={() => setSelectMode(false)}>Cancelar</Button>
             </>}
-          <DropdownDocumentos toast={toast} setSelectMode={setSelectMode} />
+          <DropdownDocumentos setSelectMode={setSelectMode} />
 
         </div>
       </div>

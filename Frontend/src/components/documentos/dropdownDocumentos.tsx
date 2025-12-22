@@ -8,16 +8,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { DialogCargaMisComprobantes } from "./dialogCargaMisComprobantes"
 import { DialogAyuda } from "../ayuda/dialogAyuda"
 import { DialogExportacionComprobantes } from "./dialogExportacionComprobantes"
 
 type DropdownDocumentosProps = {
-  toast: any,
   setSelectMode: any
 }
 
-export function DropdownDocumentos({toast, setSelectMode}: DropdownDocumentosProps) {
+export function DropdownDocumentos({setSelectMode}: DropdownDocumentosProps) {
 
     return (
         <DropdownMenu>
@@ -31,10 +29,6 @@ export function DropdownDocumentos({toast, setSelectMode}: DropdownDocumentosPro
             <DropdownMenuItem onSelect={() => setSelectMode((prev: any) => !prev)}>
               Imputar documentos
             </DropdownMenuItem>
-            <DialogCargaMisComprobantes
-              trigger={<DropdownMenuItem onSelect={(e) => {e.preventDefault()}}>Importar mis comprobantes</DropdownMenuItem>}
-              toast={toast}
-            />
             </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DialogExportacionComprobantes
