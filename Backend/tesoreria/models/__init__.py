@@ -111,7 +111,7 @@ class Registro(RegistroAbstracto):
 
         # Marcar el registro como realizado si la fecha de registro es anterior a hoy
         if is_new:
-            if self.fecha_reg and date.fromisoformat(self.fecha_reg) <= date.today():
+            if self.fecha_reg and date.fromisoformat(str(self.fecha_reg)) <= date.today():
                 self.realizado = True
         
         super().save(*args, **kwargs)
