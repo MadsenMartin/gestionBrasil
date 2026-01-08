@@ -63,8 +63,14 @@ export function CajaAGestion({ trigger, addItem }: CajaAGestionProps) {
 
     const parseCurrency = (value: string | undefined): number => {
         if (!value) return 0;
-        const cleanedValue = value.replace(/[$.]/g, '').replace(/\s/g, '');
-        return parseFloat(cleanedValue) || 0;
+
+        // Normaliza valores como "$ 9.408,09" a "9408.09"
+        const cleaned = value.replace(/[$\s]/g, '');
+        const normalized = cleaned.includes(',')
+            ? cleaned.replace(/\./g, '').replace(',', '.')
+            : cleaned.replace(/,/g, '');
+
+        return parseFloat(normalized) || 0;
     };
 
     const procesarTexto = (text: string) => {
@@ -229,6 +235,7 @@ export function CajaAGestion({ trigger, addItem }: CajaAGestionProps) {
                                             <TableHead>Entrada</TableHead>
                                             <TableHead>Salida</TableHead>
                                             <TableHead>Presupuesto</TableHead>
+                                            <TableHead>Tipo de Cambio</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -244,6 +251,7 @@ export function CajaAGestion({ trigger, addItem }: CajaAGestionProps) {
                                                 <TableCell>{formatCurrency(movimiento.entrada)}</TableCell>
                                                 <TableCell>{formatCurrency(movimiento.salida)}</TableCell>
                                                 <TableCell>{movimiento.presupuesto}</TableCell>
+                                                <TableCell>{movimiento.tipo_de_cambio}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
