@@ -22,5 +22,6 @@ Backend/scp.ps1
 Backend/deploy_django.ps1
 Backend/deploy_tesoreria.ps1
 Frontend/deploy_vite.ps1
+Backend/db.sqlite3
 
 

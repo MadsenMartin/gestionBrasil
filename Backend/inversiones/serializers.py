@@ -1,4 +1,4 @@
-from .models import Inversor, PorcentajeInversion, AsientoInversor
+from .models import Inversor, PorcentajeGastosInversion, PorcentajeInversion, AsientoInversor
 from rest_framework import serializers
 from django.db.models import Sum
 
@@ -48,3 +48,29 @@ class AsientoInversorListSerializer(serializers.ModelSerializer):
         model = AsientoInversor
         fields = ['id', 'fecha_carga', 'inversor', 'inversor_nombre', 'tipo_asiento', 'tipo_asiento_nombre', 'registro_cliente_proyecto', 'registro_id']
         #read_only_fields = ['id', 'fecha_carga', 'inversor_nombre', 'tipo_asiento_nombre', 'registro_cliente_proyecto']
+
+class PorcentajeGastosInversionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PorcentajeInversion
+        fields = '__all__'
+    def validate(self, data):
+        """
+        Valido que la suma de porcentajes no supere el 100% para un mismo mes
+        """
+        proyecto = data.get('proyecto', getattr(self.instance, 'proyecto', None))
+        mes = data.get('mes', getattr(self.instance, 'mes', None))
+        porcentaje_nuevo = data.get('porcentaje', getattr(self.instance, 'porcentaje', 0)) # Usa 0 si no se provee
+        if not proyecto or mes is None:
+            raise serializers.ValidationError("El proyecto y el mes son obligatorios.")
+        
+        # Obtengo la suma de los porcentajes existentes para el proyecto y mes, excluyo el actual en caso de tratarse de un update
+        queryset = PorcentajeGastosInversion.objects.filter(proyecto=proyecto, mes=mes).exclude(id=self.instance.id if self.instance else None)
+
+        # Sumo los porcentajes existentes (los del queryset)
+        suma_porcentajes = queryset.aggregate(total=Sum('porcentaje'))['total'] or 0
+        # Sumo el nuevo porcentaje
+        suma_porcentajes += porcentaje_nuevo
+        # Verifico que no supere el 100%
+        if suma_porcentajes > 100:
+            raise serializers.ValidationError("La suma de los porcentajes no puede superar el 100% para un mismo mes.")
+        return data
