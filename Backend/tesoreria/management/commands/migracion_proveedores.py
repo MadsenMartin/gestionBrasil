@@ -1,7 +1,6 @@
 import csv
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from tesoreria.models import Registro
 from iva.models import Persona
 
 # Comando para importar datos desde un excel exportado como csv separado por comas con codificación utf-8

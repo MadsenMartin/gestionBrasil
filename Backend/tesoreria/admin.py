@@ -6,10 +6,8 @@ from simple_history.admin import SimpleHistoryAdmin
 admin.site.register(Caja)
 
 class RegistroAdmin(SimpleHistoryAdmin):
-    
-    # Para el campo documento (si está directamente en Registro):
-    autocomplete_fields = ('documento', 'presupuesto', 'proveedor')  # Solo si existe este campo en Registro
-    search_fields = ('documento__proveedor__razon_social',)  # Ajusta según los campos reales del modelo Documento
+    autocomplete_fields = ('documento', 'presupuesto', 'proveedor')
+    search_fields = ('documento__proveedor__razon_social',) 
 
 class PresupuestoAdmin(admin.ModelAdmin):
     search_fields = ('proveedor__razon_social', 'proveedor__nombre_fantasia', 'observacion', 'cliente_proyecto__cliente_proyecto')

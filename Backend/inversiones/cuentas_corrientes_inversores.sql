@@ -1,121 +1,189 @@
 CREATE OR REPLACE VIEW cuenta_corriente_inversores_v3 AS
-WITH cuenta_corriente AS (
-SELECT tr.id,
-    tr.tipo_reg,
-    tcaja.caja,
-    tr.fecha_reg,
-    tr."añomes_imputacion",
-    iva_cp.cliente_proyecto,
+WITH
+-- Parte 1: Gastos directos de proyectos de inversión
+gastos_directos AS (
+    SELECT tr.id,
+        tr.tipo_reg,
+        tcaja.caja,
+        tr.fecha_reg,
+        tr."añomes_imputacion",
+        iva_cp.cliente_proyecto,
 
-    -- Si ai.id no es null significa que es un asiento de inversor, asique usamos el inversor como tercero, sino tomamos la contrapartida
-    CASE 
-        WHEN ai.id IS NOT NULL
-        THEN ai_i.nombre
-        ELSE COALESCE(iva_p.nombre_fantasia_pila, iva_p.razon_social, '')
-    END AS tercero,
-
-    iva_imp.imputacion,
-    tr.observacion AS descripcion,
-
-    CASE
-        WHEN tr.presupuesto_id IS NOT NULL THEN
-            COALESCE(tp_cp.cliente_proyecto, ''::character varying) || ' - ' ||
-            COALESCE(tp_prov.nombre_fantasia_pila, tp_prov.razon_social, ''::character varying) || ' - ' ||
-            COALESCE(tp.observacion, ''::character varying)
-        ELSE NULL
-    END AS presupuesto,
-
-    tr.monto_gasto_ingreso_neto,
-    tr.iva_gasto_ingreso,
-    COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0) AS total_gasto_ingreso,
-    tr.monto_op_rec,
-    COALESCE(ai_i.nombre, i.nombre) AS inversor,
-    mep.compra AS tipo_de_cambio_mep,
-
-    -- Cuando el registro tiene tipo de cambio propio, lo usamos, sino usamos el tipo de cambio del MEP
-    CASE
-    WHEN tr.tipo_de_cambio IS NOT NULL AND tr.tipo_de_cambio != 1 THEN
+        -- Si ai.id no es null significa que es un asiento de inversor, asique usamos el inversor como tercero, sino tomamos la contrapartida
         CASE
-        WHEN (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) IS NOT NULL THEN
-            (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) / tr.tipo_de_cambio
-        ELSE NULL
-        END
-    WHEN mep.compra IS NOT NULL THEN
+            WHEN ai.id IS NOT NULL
+            THEN ai_i.nombre
+            ELSE COALESCE(iva_p.nombre_fantasia_pila, iva_p.razon_social, '')
+        END AS tercero,
+
+        iva_imp.imputacion,
+        tr.observacion AS descripcion,
+
         CASE
-        WHEN (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) IS NOT NULL THEN
-            (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) / mep.compra
+            WHEN tr.presupuesto_id IS NOT NULL THEN
+                COALESCE(tp_cp.cliente_proyecto, ''::character varying) || ' - ' ||
+                COALESCE(tp_prov.nombre_fantasia_pila, tp_prov.razon_social, ''::character varying) || ' - ' ||
+                COALESCE(tp.observacion, ''::character varying)
+            ELSE NULL
+        END AS presupuesto,
+
+        tr.monto_gasto_ingreso_neto,
+        tr.iva_gasto_ingreso,
+        COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0) AS total_gasto_ingreso,
+        tr.monto_op_rec,
+        COALESCE(ai_i.nombre, i.nombre) AS inversor,
+        mep.compra AS tipo_de_cambio_mep,
+
+        -- Cuando el registro tiene tipo de cambio propio, lo usamos, sino usamos el tipo de cambio del MEP
+        CASE
+        WHEN tr.tipo_de_cambio IS NOT NULL AND tr.tipo_de_cambio != 1 THEN
+            CASE
+            WHEN (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) IS NOT NULL THEN
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) / tr.tipo_de_cambio
+            ELSE NULL
+            END
+        WHEN mep.compra IS NOT NULL THEN
+            CASE
+            WHEN (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) IS NOT NULL THEN
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) / mep.compra
+            ELSE NULL
+            END
         ELSE NULL
-        END
-    ELSE NULL
-    END AS total_gasto_ingreso_dolar,
+        END AS total_gasto_ingreso_dolar,
 
-    COALESCE(pi.porcentaje, 100) AS porcentaje,
+        COALESCE(pi.porcentaje, 100) AS porcentaje,
 
-    -- Si es un asiento de inversor, dividimos el total por el porcentaje del inversor, sino usamos el total directamente
-    CASE 
-        WHEN ai.id IS NOT NULL THEN
-            COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)
-        ELSE
-            (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) * pi.porcentaje / 100
-    END AS total_gasto_ingreso_inversor,
-	ai.tipo_asiento AS tipo_asiento
-   FROM tesoreria_registro tr
-     LEFT JOIN tesoreria_caja tcaja ON tr.caja_id = tcaja.id
-     LEFT JOIN tesoreria_registro_documento trd ON tr.id = trd.registro_id
-     LEFT JOIN iva_documento iva_doc ON trd.documento_id = iva_doc.id
-     LEFT JOIN iva_clienteproyecto iva_cp ON tr.cliente_proyecto_id = iva_cp.id
-     LEFT JOIN iva_persona iva_p ON tr.proveedor_id = iva_p.id
-     LEFT JOIN iva_imputacion iva_imp ON tr.imputacion_id = iva_imp.id
-     LEFT JOIN tesoreria_presupuesto tp ON tr.presupuesto_id = tp.id
-     LEFT JOIN iva_clienteproyecto tp_cp ON tp.cliente_proyecto_id = tp_cp.id
-     LEFT JOIN iva_persona tp_prov ON tp.proveedor_id = tp_prov.id
-     LEFT JOIN tesoreria_dolarmep mep ON tr.fecha_reg = mep.fecha
-     LEFT JOIN inversiones_asientoinversor ai ON tr.id = ai.registro_id
-     LEFT JOIN inversiones_inversor ai_i ON ai.inversor_id = ai_i.id
-     LEFT JOIN inversiones_porcentajeinversion pi ON tr.cliente_proyecto_id = pi.proyecto_id AND (ai.id IS NULL OR pi.inversor_id = ai.inversor_id)
-     LEFT JOIN inversiones_inversor i ON pi.inversor_id = i.id
+        -- Si es un asiento de inversor, dividimos el total por el porcentaje del inversor, sino usamos el total directamente
+        CASE
+            WHEN ai.id IS NOT NULL THEN
+                COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)
+            ELSE
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) * pi.porcentaje / 100
+        END AS total_gasto_ingreso_inversor,
+        ai.tipo_asiento AS tipo_asiento
+    FROM tesoreria_registro tr
+        LEFT JOIN tesoreria_caja tcaja ON tr.caja_id = tcaja.id
+        LEFT JOIN tesoreria_registro_documento trd ON tr.id = trd.registro_id
+        LEFT JOIN iva_documento iva_doc ON trd.documento_id = iva_doc.id
+        LEFT JOIN iva_clienteproyecto iva_cp ON tr.cliente_proyecto_id = iva_cp.id
+        LEFT JOIN iva_persona iva_p ON tr.proveedor_id = iva_p.id
+        LEFT JOIN iva_imputacion iva_imp ON tr.imputacion_id = iva_imp.id
+        LEFT JOIN tesoreria_presupuesto tp ON tr.presupuesto_id = tp.id
+        LEFT JOIN iva_clienteproyecto tp_cp ON tp.cliente_proyecto_id = tp_cp.id
+        LEFT JOIN iva_persona tp_prov ON tp.proveedor_id = tp_prov.id
+        LEFT JOIN tesoreria_dolarmep mep ON tr.fecha_reg = mep.fecha
+        LEFT JOIN inversiones_asientoinversor ai ON tr.id = ai.registro_id
+        LEFT JOIN inversiones_inversor ai_i ON ai.inversor_id = ai_i.id
+        LEFT JOIN inversiones_porcentajeinversion pi ON tr.cliente_proyecto_id = pi.proyecto_id AND (ai.id IS NULL OR pi.inversor_id = ai.inversor_id)
+        LEFT JOIN inversiones_inversor i ON pi.inversor_id = i.id
     WHERE tr.activo = true
-    AND tr.tipo_reg NOT IN ('OP', 'MC', 'RETH', 'PERCS')
-    AND iva_cp.unidad_de_negocio_id = 7 -- Unidad de negocio "Inversiones"
-    AND tr.cliente_proyecto_id IN (
-    SELECT proyecto_id FROM inversiones_porcentajeinversion
-)
+        AND tr.tipo_reg NOT IN ('OP', 'MC', 'RETH', 'PERCS')
+        AND iva_cp.unidad_de_negocio_id = 7 -- Unidad de negocio "Inversiones"
+        AND tr.cliente_proyecto_id IN (SELECT proyecto_id FROM inversiones_porcentajeinversion)
     GROUP BY tr.id, tr.tipo_reg, tcaja.caja, tr.fecha_reg, tr."añomes_imputacion", iva_cp.cliente_proyecto, iva_p.nombre_fantasia_pila, iva_p.razon_social, iva_imp.imputacion, tp_cp.cliente_proyecto, tp_prov.nombre_fantasia_pila, tp_prov.razon_social, tp.observacion, tr.observacion, tr.monto_gasto_ingreso_neto, tr.iva_gasto_ingreso, tr.monto_op_rec, tr.moneda, tr.tipo_de_cambio, tr.realizado, ai_i.nombre, i.nombre, pi.porcentaje, mep.compra, ai.id
-)SELECT
-id AS "ID",
-cliente_proyecto AS "Filtro proyecto",
-inversor AS "Filtro inversor",
-fecha_reg AS "Fecha",
-tercero AS "Tercero",
-imputacion AS "Imputación",
-descripcion AS "Descripción",
-presupuesto AS "Presupuesto",
-total_gasto_ingreso AS "TOTAL Devengado (AR$)",
-total_gasto_ingreso_dolar AS "TOTAL Devengado (US$)",
-CASE
-WHEN tipo_asiento IS NOT NULL
-THEN NULL
-ELSE 
-total_gasto_ingreso_inversor END AS "Devengado 25% x socio (AR$/Cab.)",
-CASE WHEN tipo_asiento IS NOT NULL
-THEN total_gasto_ingreso
-ELSE
-NULL END as "Pagado ARS",
-CASE
-WHEN tipo_asiento IS NULL
-THEN total_gasto_ingreso_dolar * porcentaje / 100
-ELSE total_gasto_ingreso_dolar
-END AS "Mov. US$",
--- Nueva columna del saldo acumulado:
-SUM(CASE
-    WHEN tipo_asiento IS NULL
-    THEN total_gasto_ingreso_dolar * porcentaje / 100
-    ELSE total_gasto_ingreso_dolar
-END) OVER (
-    PARTITION BY inversor, cliente_proyecto 
-    ORDER BY fecha_reg, id 
-    ROWS UNBOUNDED PRECEDING
-) AS "Saldo US$"
+),
+
+-- Parte 2: Gastos indirectos distribuidos según PorcentajeGastosInversion
+gastos_indirectos AS (
+    SELECT
+        tr.id,
+        tr.tipo_reg,
+        tcaja.caja,
+        tr.fecha_reg,
+        tr."añomes_imputacion",
+        -- Formato: "Indirectos (Nombre del proyecto destino)"
+        'Indirectos (' || dest_cp.cliente_proyecto || ')' AS cliente_proyecto,
+        COALESCE(iva_p.nombre_fantasia_pila, iva_p.razon_social, '') AS tercero,
+        iva_imp.imputacion,
+        tr.observacion AS descripcion,
+        CASE
+            WHEN tr.presupuesto_id IS NOT NULL THEN
+                COALESCE(tp_cp.cliente_proyecto, ''::character varying) || ' - ' ||
+                COALESCE(tp_prov.nombre_fantasia_pila, tp_prov.razon_social, ''::character varying) || ' - ' ||
+                COALESCE(tp.observacion, ''::character varying)
+            ELSE NULL
+        END AS presupuesto,
+        -- Montos originales multiplicados por el porcentaje de alocación al proyecto
+        tr.monto_gasto_ingreso_neto * pgi.porcentaje / 100 AS monto_gasto_ingreso_neto,
+        tr.iva_gasto_ingreso * pgi.porcentaje / 100 AS iva_gasto_ingreso,
+        (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) * pgi.porcentaje / 100 AS total_gasto_ingreso,
+        tr.monto_op_rec * pgi.porcentaje / 100 AS monto_op_rec,
+        i.nombre AS inversor,
+        mep.compra AS tipo_de_cambio_mep,
+        -- Total en dólares con porcentaje de alocación al proyecto
+        CASE
+            WHEN tr.tipo_de_cambio IS NOT NULL AND tr.tipo_de_cambio != 1 THEN
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) * pgi.porcentaje / 100 / tr.tipo_de_cambio
+            WHEN mep.compra IS NOT NULL THEN
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) * pgi.porcentaje / 100 / mep.compra
+            ELSE NULL
+        END AS total_gasto_ingreso_dolar,
+        -- Porcentaje del inversor en el proyecto destino
+        COALESCE(pi.porcentaje, 100) AS porcentaje,
+        -- Total para el inversor: monto del gasto * % alocación proyecto * % inversor en proyecto
+        (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) * pgi.porcentaje / 100 * pi.porcentaje / 100 AS total_gasto_ingreso_inversor,
+        NULL::character varying AS tipo_asiento  -- Los indirectos no son asientos de inversor
+    FROM tesoreria_registro tr
+        LEFT JOIN tesoreria_caja tcaja ON tr.caja_id = tcaja.id
+        LEFT JOIN iva_clienteproyecto iva_cp ON tr.cliente_proyecto_id = iva_cp.id
+        LEFT JOIN iva_persona iva_p ON tr.proveedor_id = iva_p.id
+        LEFT JOIN iva_imputacion iva_imp ON tr.imputacion_id = iva_imp.id
+        LEFT JOIN tesoreria_presupuesto tp ON tr.presupuesto_id = tp.id
+        LEFT JOIN iva_clienteproyecto tp_cp ON tp.cliente_proyecto_id = tp_cp.id
+        LEFT JOIN iva_persona tp_prov ON tp.proveedor_id = tp_prov.id
+        LEFT JOIN tesoreria_dolarmep mep ON tr.fecha_reg = mep.fecha
+        -- JOIN con la tabla de porcentajes de gastos para obtener a qué proyectos se asignan los indirectos
+        INNER JOIN inversiones_porcentajegastosinversion pgi ON tr."añomes_imputacion" = pgi.mes
+        -- JOIN para obtener el nombre del proyecto destino
+        INNER JOIN iva_clienteproyecto dest_cp ON pgi.proyecto_id = dest_cp.id
+        -- JOIN para distribuir entre inversores del proyecto destino
+        INNER JOIN inversiones_porcentajeinversion pi ON pgi.proyecto_id = pi.proyecto_id
+        INNER JOIN inversiones_inversor i ON pi.inversor_id = i.id
+    WHERE tr.activo = true
+        AND tr.tipo_reg NOT IN ('OP', 'MC', 'RETH', 'PERCS')
+        AND iva_cp.cliente_proyecto = 'Indirectos'  -- Solo gastos indirectos
+        AND pgi.porcentaje > 0  -- Solo si hay porcentaje asignado
+),
+
+-- Unión de gastos directos e indirectos
+cuenta_corriente AS (
+    SELECT * FROM gastos_directos
+    UNION ALL
+    SELECT * FROM gastos_indirectos
+)
+
+SELECT
+    id AS "ID",
+    cliente_proyecto AS "Filtro proyecto",
+    inversor AS "Filtro inversor",
+    fecha_reg AS "Fecha",
+    tercero AS "Tercero",
+    imputacion AS "Imputación",
+    descripcion AS "Descripción",
+    presupuesto AS "Presupuesto",
+    total_gasto_ingreso AS "TOTAL Devengado (AR$)",
+    total_gasto_ingreso_dolar AS "TOTAL Devengado (US$)",
+    CASE
+        WHEN tipo_asiento IS NOT NULL THEN NULL
+        ELSE total_gasto_ingreso_inversor
+    END AS "Devengado 25% x socio (AR$/Cab.)",
+    CASE
+        WHEN tipo_asiento IS NOT NULL THEN total_gasto_ingreso
+        ELSE NULL
+    END AS "Pagado ARS",
+    CASE
+        WHEN tipo_asiento IS NULL THEN total_gasto_ingreso_dolar * porcentaje / 100
+        ELSE total_gasto_ingreso_dolar
+    END AS "Mov. US$",
+    -- Saldo acumulado por inversor y proyecto
+    SUM(CASE
+        WHEN tipo_asiento IS NULL THEN total_gasto_ingreso_dolar * porcentaje / 100
+        ELSE total_gasto_ingreso_dolar
+    END) OVER (
+        PARTITION BY inversor, cliente_proyecto
+        ORDER BY fecha_reg, id
+        ROWS UNBOUNDED PRECEDING
+    ) AS "Saldo US$"
 FROM cuenta_corriente
 ORDER BY fecha_reg, id;
 
@@ -125,7 +193,96 @@ ORDER BY fecha_reg, id;
 
 
 
-
+ WITH cuenta_corriente AS (
+         SELECT tr.id,
+            tr.tipo_reg,
+            tcaja.caja,
+            tr.fecha_reg,
+            tr."añomes_imputacion",
+            iva_cp.cliente_proyecto,
+                CASE
+                    WHEN ai.id IS NOT NULL THEN ai_i.nombre
+                    ELSE COALESCE(iva_p.nombre_fantasia_pila, iva_p.razon_social, ''::character varying)
+                END AS tercero,
+            iva_imp.imputacion,
+            tr.observacion AS descripcion,
+                CASE
+                    WHEN tr.presupuesto_id IS NOT NULL THEN (((COALESCE(tp_cp.cliente_proyecto, ''::character varying)::text || ' - '::text) || COALESCE(tp_prov.nombre_fantasia_pila, tp_prov.razon_social, ''::character varying)::text) || ' - '::text) || COALESCE(tp.observacion, ''::character varying::text)
+                    ELSE NULL::text
+                END AS presupuesto,
+            tr.monto_gasto_ingreso_neto,
+            tr.iva_gasto_ingreso,
+            COALESCE(tr.monto_gasto_ingreso_neto, 0::numeric) + COALESCE(tr.iva_gasto_ingreso, 0::numeric) AS total_gasto_ingreso,
+            tr.monto_op_rec,
+            COALESCE(ai_i.nombre, i.nombre) AS inversor,
+            mep.compra AS tipo_de_cambio_mep,
+                CASE
+                    WHEN tr.tipo_de_cambio IS NOT NULL AND tr.tipo_de_cambio <> 1::numeric THEN
+                    CASE
+                        WHEN (COALESCE(tr.monto_gasto_ingreso_neto, 0::numeric) + COALESCE(tr.iva_gasto_ingreso, 0::numeric)) IS NOT NULL THEN (COALESCE(tr.monto_gasto_ingreso_neto, 0::numeric) + COALESCE(tr.iva_gasto_ingreso, 0::numeric)) / tr.tipo_de_cambio
+                        ELSE NULL::numeric
+                    END
+                    WHEN mep.compra IS NOT NULL THEN
+                    CASE
+                        WHEN (COALESCE(tr.monto_gasto_ingreso_neto, 0::numeric) + COALESCE(tr.iva_gasto_ingreso, 0::numeric)) IS NOT NULL THEN (COALESCE(tr.monto_gasto_ingreso_neto, 0::numeric) + COALESCE(tr.iva_gasto_ingreso, 0::numeric)) / mep.compra
+                        ELSE NULL::numeric
+                    END
+                    ELSE NULL::numeric
+                END AS total_gasto_ingreso_dolar,
+            COALESCE(pi.porcentaje, 100::numeric) AS porcentaje,
+                CASE
+                    WHEN ai.id IS NOT NULL THEN COALESCE(tr.monto_gasto_ingreso_neto, 0::numeric) + COALESCE(tr.iva_gasto_ingreso, 0::numeric)
+                    ELSE (COALESCE(tr.monto_gasto_ingreso_neto, 0::numeric) + COALESCE(tr.iva_gasto_ingreso, 0::numeric)) * pi.porcentaje / 100::numeric
+                END AS total_gasto_ingreso_inversor,
+            ai.tipo_asiento
+           FROM tesoreria_registro tr
+             LEFT JOIN tesoreria_caja tcaja ON tr.caja_id = tcaja.id
+             LEFT JOIN tesoreria_registro_documento trd ON tr.id = trd.registro_id
+             LEFT JOIN iva_documento iva_doc ON trd.documento_id = iva_doc.id
+             LEFT JOIN iva_clienteproyecto iva_cp ON tr.cliente_proyecto_id = iva_cp.id
+             LEFT JOIN iva_persona iva_p ON tr.proveedor_id = iva_p.id
+             LEFT JOIN iva_imputacion iva_imp ON tr.imputacion_id = iva_imp.id
+             LEFT JOIN tesoreria_presupuesto tp ON tr.presupuesto_id = tp.id
+             LEFT JOIN iva_clienteproyecto tp_cp ON tp.cliente_proyecto_id = tp_cp.id
+             LEFT JOIN iva_persona tp_prov ON tp.proveedor_id = tp_prov.id
+             LEFT JOIN tesoreria_dolarmep mep ON tr.fecha_reg = mep.fecha
+             LEFT JOIN inversiones_asientoinversor ai ON tr.id = ai.registro_id
+             LEFT JOIN inversiones_inversor ai_i ON ai.inversor_id = ai_i.id
+             LEFT JOIN inversiones_porcentajeinversion pi ON tr.cliente_proyecto_id = pi.proyecto_id AND (ai.id IS NULL OR pi.inversor_id = ai.inversor_id)
+             LEFT JOIN inversiones_inversor i ON pi.inversor_id = i.id
+          WHERE tr.activo = true AND (tr.tipo_reg::text <> ALL (ARRAY['OP'::character varying::text, 'MC'::character varying::text, 'RETH'::character varying::text, 'PERCS'::character varying::text])) AND iva_cp.unidad_de_negocio_id = 7 AND (tr.cliente_proyecto_id IN ( SELECT inversiones_porcentajeinversion.proyecto_id
+                   FROM inversiones_porcentajeinversion)) AND tr.fecha_reg <= CURRENT_DATE
+          GROUP BY tr.id, tr.tipo_reg, tcaja.caja, tr.fecha_reg, tr."añomes_imputacion", iva_cp.cliente_proyecto, iva_p.nombre_fantasia_pila, iva_p.razon_social, iva_imp.imputacion, tp_cp.cliente_proyecto, tp_prov.nombre_fantasia_pila, tp_prov.razon_social, tp.observacion, tr.observacion, tr.monto_gasto_ingreso_neto, tr.iva_gasto_ingreso, tr.monto_op_rec, tr.moneda, tr.tipo_de_cambio, tr.realizado, ai_i.nombre, i.nombre, pi.porcentaje, mep.compra, ai.id
+        )
+ SELECT id AS "ID",
+    cliente_proyecto AS "Filtro proyecto",
+    inversor AS "Filtro inversor",
+    fecha_reg AS "Fecha",
+    tercero AS "Tercero",
+    imputacion AS "Imputación",
+    descripcion AS "Descripción",
+    presupuesto AS "Presupuesto",
+    total_gasto_ingreso AS "TOTAL Devengado (AR$)",
+    total_gasto_ingreso_dolar AS "TOTAL Devengado (US$)",
+        CASE
+            WHEN tipo_asiento IS NOT NULL THEN NULL::numeric
+            ELSE total_gasto_ingreso_inversor
+        END AS "Devengado 25% x socio (AR$/Cab.)",
+        CASE
+            WHEN tipo_asiento IS NOT NULL THEN total_gasto_ingreso
+            ELSE NULL::numeric
+        END AS "Pagado ARS",
+        CASE
+            WHEN tipo_asiento IS NULL THEN total_gasto_ingreso_dolar * porcentaje / 100::numeric
+            ELSE total_gasto_ingreso_dolar
+        END AS "Mov. US$",
+    sum(
+        CASE
+            WHEN tipo_asiento IS NULL THEN total_gasto_ingreso_dolar * porcentaje / 100::numeric
+            ELSE total_gasto_ingreso_dolar
+        END) OVER (PARTITION BY inversor, cliente_proyecto ORDER BY fecha_reg, id ROWS UNBOUNDED PRECEDING) AS "Saldo US$"
+   FROM cuenta_corriente
+  ORDER BY fecha_reg, id;
 
 
 
