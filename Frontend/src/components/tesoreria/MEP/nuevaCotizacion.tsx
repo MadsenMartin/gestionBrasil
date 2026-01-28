@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { post_generico } from "@/endpoints/api";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 const formSchema = z.object({
     fecha: z.string(),
@@ -15,7 +16,7 @@ const formSchema = z.object({
     venta: z.coerce.number()
 })
 
-export function NuevaCotizacion({toast}) {
+export function NuevaCotizacion({addItem}) {
     const [showForm, setShowForm] = useState(false)
     const form = useForm<z.infer<typeof formSchema>>({ 
         resolver: zodResolver(formSchema),
@@ -31,6 +32,7 @@ export function NuevaCotizacion({toast}) {
             const response = await post_generico({ model: 'dolar_mep', data: values })
             if (response.status === 201) {
                 toast('Cotización guardada')
+                addItem(response.data)
                 setShowForm(false)
             } else {
                 toast('Error al cargar la cotización: ' + response.data)

@@ -234,8 +234,8 @@ class Presupuesto(models.Model):
 
 class DolarMEP(models.Model):
     fecha = models.DateField(default=datetime.now)
-    compra = models.DecimalField(decimal_places=2, max_digits= 20)
-    venta = models.DecimalField(decimal_places=2, max_digits= 20)
+    compra = models.DecimalField(decimal_places=4, max_digits= 20)
+    venta = models.DecimalField(decimal_places=4, max_digits= 20)
 
 class ConciliacionCaja(models.Model):
     fecha = models.DateTimeField(auto_now=True)
