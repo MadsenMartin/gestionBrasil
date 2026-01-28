@@ -189,7 +189,7 @@ class CargaCaja(APIView):
 
                     for item in serializer.validated_data['movimientos']:
 
-                        neto, iva, monto_op_rec, tc = self.get_montos(item, serializer.validated_data['caja'].moneda)
+                        neto, iva, monto_op_rec, tc = self.get_montos(item, serializer.validated_data['caja'].moneda.id)
                         caja_contrapartida, proveedor = self.get_contrapartida(item, flag_crear_proveedor)
                         presupuesto = self.get_presupuesto(item)
                         unidad_de_negocio = self.get_unidad_de_negocio(item)

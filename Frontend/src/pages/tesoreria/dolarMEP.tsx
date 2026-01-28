@@ -16,7 +16,7 @@ export const formatCurrency = (amount: number, currency='ARS') => {
 }
 
 export function DolarMEP() {
-    const { data: cotizaciones, filters, asignarRef, fields, setFilters, handleOrdenar, headersCapitalized, headers, orden, ordenPor, updateItem, deleteItem } = TableBuilder("dolar_mep")
+    const { data: cotizaciones, filters, asignarRef, fields, setFilters, handleOrdenar, headersCapitalized, headers, orden, ordenPor, updateItem, deleteItem, addItem } = TableBuilder("dolar_mep")
 
     return (
         <div className="mx-auto w-full p-12">
@@ -32,7 +32,7 @@ export function DolarMEP() {
                         onChange={setFilters}
                         onReset={() => { setFilters([]) }}
                     />
-                    <NuevaCotizacion toast={toast} />
+                    <NuevaCotizacion addItem={addItem} />
             </div>
             <div className="rounded-md border max-w-screen-xl mx-auto">
                 <Table>

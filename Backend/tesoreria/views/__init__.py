@@ -609,15 +609,19 @@ class DolarMEPList(generics.ListCreateAPIView):
         
         fecha_parts = fecha.split('-')
         registros = Registro.objects.filter(fecha_reg=fecha)
-        tc_mep = float(request.data.get('compra'))
+        tc_mep = Decimal(request.data.get('compra'))
         try:
             for reg in registros:
                 # Obtengo el tipo de cambio del registro
-                tc_reg = float(reg.tipo_de_cambio) if reg.tipo_de_cambio else None
+                tc_reg = reg.tipo_de_cambio
                 # Si el valor obtenido no es nulo y es distinto del tc MEP del día
                 if tc_reg and tc_reg > 1 and tc_reg != tc_mep:
                     # Calcular la diferencia de cambio
-                    dif = round((tc_mep - tc_reg) * (float(reg.monto_op_rec)/tc_reg),2)
+                    dif = ((tc_mep - tc_reg) * (reg.monto_op_rec / tc_reg)).quantize(Decimal('0.01'))
+
+                    # Si la diferencia es 0, no crear registro
+                    if dif == 0:
+                        continue
 
                     # Esto debería moverse al serializer, porque la lógica de distribución de diferencia de cambio solo se aplica al cargar una cotización y debería aplicarse siempre
 
@@ -625,13 +629,14 @@ class DolarMEPList(generics.ListCreateAPIView):
                     clientes = {}
                     # Si hay documentos asociados al registro
                     if documentos:
-                        total_docs = float(sum(documento.total for documento in documentos))
+                        total_docs = sum(documento.total for documento in documentos)
                         # Calcular la diferencia proporcional por cliente_proyecto
                         for documento in documentos:
-                            if documento.cliente_proyecto not in clientes:
-                                clientes[documento.cliente_proyecto.pk] = round(float(documento.total)/total_docs * dif,2)
+                            proporcion = (documento.total / total_docs * dif).quantize(Decimal('0.01'))
+                            if documento.cliente_proyecto.pk not in clientes:
+                                clientes[documento.cliente_proyecto.pk] = proporcion
                             else:
-                                clientes[documento.cliente_proyecto.pk] += round(float(documento.total)/total_docs * dif,2)
+                                clientes[documento.cliente_proyecto.pk] += proporcion
 
                         for cliente in clientes:
                             docs = documentos.filter(cliente_proyecto=cliente)
@@ -704,9 +709,9 @@ class DolarMEPList(generics.ListCreateAPIView):
                 elif reg.moneda == 2 and tc_reg and tc_reg == 1:
                     try:
                         reg.tipo_de_cambio = tc_mep
-                        reg.monto_gasto_ingreso_neto = round(float(reg.monto_gasto_ingreso_neto)*tc_mep,4) if reg.monto_gasto_ingreso_neto else None
-                        reg.iva_gasto_ingreso = round(float(reg.iva_gasto_ingreso)*tc_mep,4) if reg.iva_gasto_ingreso else None
-                        reg.monto_op_rec = round(float(reg.monto_op_rec)*tc_mep,4) if reg.monto_op_rec else None
+                        reg.monto_gasto_ingreso_neto = (reg.monto_gasto_ingreso_neto * tc_mep).quantize(Decimal('0.0001')) if reg.monto_gasto_ingreso_neto else None
+                        reg.iva_gasto_ingreso = (reg.iva_gasto_ingreso * tc_mep).quantize(Decimal('0.0001')) if reg.iva_gasto_ingreso else None
+                        reg.monto_op_rec = (reg.monto_op_rec * tc_mep).quantize(Decimal('0.0001')) if reg.monto_op_rec else None
                         reg.save()
                     except Exception as e:
                         transaction.set_rollback(True)
