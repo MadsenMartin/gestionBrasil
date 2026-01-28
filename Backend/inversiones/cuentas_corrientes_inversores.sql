@@ -119,18 +119,18 @@ gastos_indirectos AS (
                 COALESCE(tp.observacion, ''::character varying)
             ELSE NULL
         END AS presupuesto,
-        tr.monto_gasto_ingreso_neto AS monto_gasto_ingreso_neto,
+        tr.monto_gasto_ingreso_neto * pgi.porcentaje / 100 AS monto_gasto_ingreso_neto,
         tr.iva_gasto_ingreso * pgi.porcentaje / 100 AS iva_gasto_ingreso,
-        (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) AS total_gasto_ingreso,
+        (COALESCE(tr.monto_gasto_ingreso_neto, 0) * pgi.porcentaje / 100 + COALESCE(tr.iva_gasto_ingreso, 0) * pgi.porcentaje / 100) AS total_gasto_ingreso,
         tr.monto_op_rec AS monto_op_rec,
         -- Inversor: si es asiento de inversor usa ai_i, sino usa i del porcentaje
         COALESCE(ai_i.nombre, i.nombre) AS inversor,
         mep.compra AS tipo_de_cambio_mep,
         CASE
             WHEN tr.tipo_de_cambio IS NOT NULL AND tr.tipo_de_cambio != 1 THEN
-                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) / tr.tipo_de_cambio
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) * pgi.porcentaje / 100 + COALESCE(tr.iva_gasto_ingreso, 0) * pgi.porcentaje / 100) / tr.tipo_de_cambio
             WHEN mep.compra IS NOT NULL THEN
-                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) / mep.compra
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) * pgi.porcentaje / 100 + COALESCE(tr.iva_gasto_ingreso, 0) * pgi.porcentaje / 100) / mep.compra
             ELSE NULL
         END AS total_gasto_ingreso_dolar,
         COALESCE(pi.porcentaje, 100::numeric) AS porcentaje,
