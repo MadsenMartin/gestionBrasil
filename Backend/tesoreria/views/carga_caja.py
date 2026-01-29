@@ -75,6 +75,8 @@ class CargaCaja(APIView):
             return None, None, total, tc if tc else item['tipo_de_cambio']
         elif item['tipo_reg'] == 'FCV':
             return total, None
+        elif item['tipo_reg'] == 'FC':
+            return neto, iva, None, tc if tc else item['tipo_de_cambio']
         return neto or None, iva or None, total or None, tc if tc else item['tipo_de_cambio']
 
     def get_presupuesto(self, item):
