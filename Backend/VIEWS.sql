@@ -1,3 +1,7 @@
+drop view if exists db_total;
+drop view if exists db_presupuestos_ss;
+drop view if exists cuenta_corriente_inversores;
+
 CREATE VIEW db_total AS 
 SELECT tr.id AS "ID",
 tr.tipo_reg AS "Tipo Reg",

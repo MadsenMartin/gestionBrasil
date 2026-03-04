@@ -48,7 +48,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-c4ebaucly7s**pf1zj^cig9(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=["192.168.1.70"])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=["192.168.1.71"])
 
 # Application definition
 
@@ -101,8 +101,8 @@ MIDDLEWARE = [
 
 # En desarrollo, permite origenes locales
 if DEBUG:
-    CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=["http://192.168.1.70:5173",])
-    FRONTEND_URL = env('FRONTEND_URL', default='http://192.168.1.70:5173')
+    CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=["http://192.168.1.71:5173",])
+    FRONTEND_URL = env('FRONTEND_URL', default='http://192.168.1.71:5173')
 else:
     # En producción, permite los frontends configurados (separados por coma)
     CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])

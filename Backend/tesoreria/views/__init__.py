@@ -708,7 +708,6 @@ class DolarMEPList(generics.ListCreateAPIView):
                 # Si el registro es en USD y el tipo de cambio es 1, quiere decir que le falta el TC, entonces multiplicamos los montos por el TC MEP y guardamos el TC
                 elif reg.moneda.id == 2 and tc_reg and tc_reg == 1:
                     try:
-                        print("Moneda = 2")
                         reg.tipo_de_cambio = tc_mep
                         reg.monto_gasto_ingreso_neto = (reg.monto_gasto_ingreso_neto * tc_mep).quantize(Decimal('0.0001')) if reg.monto_gasto_ingreso_neto else None
                         reg.iva_gasto_ingreso = (reg.iva_gasto_ingreso * tc_mep).quantize(Decimal('0.0001')) if reg.iva_gasto_ingreso else None

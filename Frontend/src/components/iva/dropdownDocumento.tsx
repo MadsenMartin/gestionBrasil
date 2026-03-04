@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DialogoEstadosDocumento } from "./historialDocumento"
 import { DetalleDocumento } from "../dialogs/detalle-documento"
-import { DialogTransferencia } from "../pagos/nuevaTransferencia"
+//import { DialogTransferencia } from "../pagos/nuevaTransferencia"
 import { DialogConfirmacion } from "../dialogs/dialogConfirmacion"
 import { delete_generico } from "@/endpoints/api"
 import { DialogNuevoDocumento } from "../documentos/dialgoNuevoDocumento"
@@ -77,7 +77,7 @@ export function DropdownMenuDocumento({ doc, updateItem, deleteItem, toast }: Dr
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuSub>
-            <DialogTransferencia
+            {/*<DialogTransferencia
               facturaInicial={doc}
               toast={toast}
               onClose={() => setOpen(false)}
@@ -87,7 +87,7 @@ export function DropdownMenuDocumento({ doc, updateItem, deleteItem, toast }: Dr
                   Generar OP
                 </DropdownMenuItem>
               }
-            />
+            />*/}
             <InformarPagoDocumentoDialog
               documento={doc}
               updateItem={updateItem}

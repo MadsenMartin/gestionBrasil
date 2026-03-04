@@ -1,6 +1,7 @@
 import { NuevaCuentaCorriente } from './types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { formatCurrency } from '../documentos/tablaDocumentos';
 
 export function TablaProveedor({ cuentaCorriente }: { cuentaCorriente: NuevaCuentaCorriente }) {
 
@@ -43,8 +44,8 @@ export function TablaProveedor({ cuentaCorriente }: { cuentaCorriente: NuevaCuen
                     <TableCell>{movimiento.tipo_reg}</TableCell>
                     <TableCell>{movimiento.caja}</TableCell>
                     <TableCell>{movimiento.observacion}</TableCell>
-                    <TableCell className='text-right'>{`$${(Number(movimiento.monto_gasto_ingreso_neto) + Number(movimiento.iva_gasto_ingreso)).toFixed(2)}`}</TableCell>
-                    <TableCell className='text-right'>{movimiento.monto_op_rec}</TableCell>
+                    <TableCell className='text-right'>{formatCurrency(Number(movimiento.monto_gasto_ingreso_neto) + Number(movimiento.iva_gasto_ingreso))}</TableCell>
+                    <TableCell className='text-right'>{formatCurrency(movimiento.monto_op_rec)}</TableCell>
                     <TableCell className={`text-right ${movimiento.monto_op_rec < 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {movimiento.neto.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
                     </TableCell>

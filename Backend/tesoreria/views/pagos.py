@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from iva.utils import registro_desde_documento_real, registro_desde_documento_temporal, registros_percepciones
 from tesoreria.views import handle_proveedor_search
 from tesoreria.opdf import generar_pdf_orden_pago
-from django.db.models import Q
+from django.db.models import Q, Max
 from datetime import datetime
 from openpyxl import Workbook
 from django.http import HttpResponse
@@ -131,7 +131,8 @@ class ProcessPaymentView(APIView):
                     }, status=status.HTTP_400_BAD_REQUEST)
 
                 # Generar PDF de orden de pago
-                op_nro = PagoFactura.objects.filter().order_by('-id').first().id + 1
+                max_id = PagoFactura.objects.aggregate(max_id=Max('id'))['max_id']
+                op_nro = (max_id or 0) + 1
                 datos_proveedor = {
                     'op_nro': op_nro,
                     'nombre': documentos[0].proveedor.razon_social,

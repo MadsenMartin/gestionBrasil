@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { SubmitErrorHandler, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,6 @@ import { ComboboxAPI } from '../comboboxes/ComboboxAPI'
 import { Separator } from '../ui/separator'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
-import { formSchema } from '../cruds/schemas/documento'
 import { ComboboxModels } from '../comboboxes/comboboxModels'
 import { Checkbox } from '../ui/checkbox'
 
@@ -34,6 +33,29 @@ export function FormNuevoDocumento({ setCurrentAdjunto, addDocumento, updateDocu
     const [defaultValues, setDefaultValues] = useState<z.infer<typeof formSchema>>() // Para cargar los valores iniciales en el formulario, que se obtienen de la API
     const [sending, setSending] = useState(false) // Para deshabilitar el botón de enviar mientras se envía el formulario
     const date = new Date()
+
+    const formSchema = z.object({
+        tipo_documento: z.number().int().min(1, "Este campo es requerido"),
+        fecha_documento: z.string(),
+        proveedor: z.number().int().min(1, "Este campo es requerido"),
+        receptor: z.number().int().min(1, "Este campo es requerido"),
+        serie: z.coerce.number().int(),
+        numero: z.coerce.number().int(),
+        chave_de_acesso: z.coerce.number().int().optional().nullable(),
+        añomes_imputacion_gasto: z.coerce.number(),
+        añomes_imputacion_contable: z.coerce.number(),
+        tiene_cno: z.boolean(),
+        unidad_de_negocio: comboboxField(),
+        cliente_proyecto: comboboxField(),
+        imputacion: comboboxField(),
+        concepto: z.string().min(1, "Este campo es requerido"),
+        comentario: z.string().optional().nullable(),
+        total: z.coerce.number().min(0, "El total debe ser un número positivo"),
+        impuestos_retidos: z.coerce.number().min(0, "Los impuestos retidos deben ser un número positivo"),
+        moneda: z.coerce.number(),
+        municipio: comboboxField(),
+        archivo: data ? z.string().optional() : z.instanceof(File),
+    })
 
     // Obtengo los valores iniciales de la API y los guardo en el estado para luego asignarlos al formulario
     useEffect(() => {
@@ -178,6 +200,55 @@ export function FormNuevoDocumento({ setCurrentAdjunto, addDocumento, updateDocu
         }
     };
 
+    const onSubmitError: SubmitErrorHandler<z.infer<typeof formSchema>> = (errors) => {
+        const fieldLabels: Record<string, string> = {
+            tipo_documento: 'Tipo de documento',
+            fecha_documento: 'Fecha documento',
+            proveedor: 'Proveedor',
+            receptor: 'Receptor',
+            punto_de_venta: 'Punto de venta',
+            tiene_cno: 'Tiene CNO',
+            numero: 'Número',
+            añomes_imputacion_gasto: 'Año/Mes imputación gasto',
+            añomes_imputacion_contable: 'Año/Mes imputación contable',
+            unidad_de_negocio: 'Unidad de negocio',
+            cliente_proyecto: 'Cliente/proyecto',
+            imputacion: 'Imputación',
+            concepto: 'Concepto',
+            comentario: 'Comentario',
+            neto: 'Neto',
+            iva: 'IVA',
+            percepcion_de_iva: 'Percepción de IVA',
+            percepcion_de_iibb: 'Percepción de IIBB',
+            no_gravado: 'No gravado',
+            exento: 'Exento',
+            moneda: 'Moneda',
+            tipo_de_cambio: 'Tipo de cambio',
+            archivo: 'Archivo',
+        }
+
+        const flattenedErrors = Object.entries(errors).map(([fieldName, fieldError]) => {
+            const fieldErrorMessage = Array.isArray(fieldError)
+                ? fieldError.map((item) => item?.message).filter(Boolean).join(', ')
+                : fieldError?.message
+
+            return {
+                field: fieldName,
+                label: fieldLabels[fieldName] || fieldName,
+                message: fieldErrorMessage || 'Error de validación sin mensaje',
+                type: fieldError?.type || 'unknown',
+            }
+        })
+
+        console.group('FormNuevoDocumento - errores de validación')
+        console.log('Errores raw:', errors)
+        console.table(flattenedErrors)
+        console.groupEnd()
+
+        const firstError = flattenedErrors.find((error) => error.message)
+        toast(`Error en ${firstError?.label || 'formulario'}: ${firstError?.message || 'Revisá los campos obligatorios.'}`)
+    }
+
     const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
         if (file) {
@@ -190,7 +261,7 @@ export function FormNuevoDocumento({ setCurrentAdjunto, addDocumento, updateDocu
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit, onSubmitError)} className="space-y-8">
                 <ScrollArea className={cn("w-full rounded-md border p-4", file ? "h-[80vh]" : "h-[80vh]")}>
                     {!data && <FormField
                         control={form.control}
