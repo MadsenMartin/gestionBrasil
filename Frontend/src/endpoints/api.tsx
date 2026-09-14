@@ -47,7 +47,6 @@ const IMPUTAR_DOCUMENTOS_URL = `${API_BASE_URL}/api/tesoreria/imputacion_factura
 const TAREAS_URL = `${API_BASE_URL}/api/tesoreria/tareas/`
 const USER_URL = `${API_BASE_URL}/api/user/`
 const PLANTILLAS_REGISTROS_URL = `${TESORERIA_URL}plantillas/`
-const FCI_URL = `${API_BASE_URL}/api/tesoreria/fci/`
 const MIS_COMPROBANTES_URL = `${API_BASE_URL}/api/iva/mis_comprobantes_recibidos/`
 const ASIENTOS_INVERSOR_URL = `${API_BASE_URL}/api/inversiones/asientos_inversor/`
 const INVERSORES_URL = `${API_BASE_URL}/api/inversiones/inversores/`
@@ -93,7 +92,6 @@ export const URL_MAP: { [key: string]: string } = {
     tareas: TAREAS_URL,
     usuario: USER_URL,
     plantillas_registros: PLANTILLAS_REGISTROS_URL,
-    fci: FCI_URL,
     mis_comprobantes: MIS_COMPROBANTES_URL,
     asientos_inversor: ASIENTOS_INVERSOR_URL,
     inversores: INVERSORES_URL,
@@ -686,53 +684,6 @@ export const imputar_documentos = async (data) => {
         return response;
     } catch (error) {
         console.error('Error al imputar los documentos:', error);
-        throw error;
-    }
-}
-
-interface Movimiento {
-    cod_concepto: string
-    nro_cheque: string
-    debito: string
-    credito: string
-    nombre: string
-    nro_doc: string
-    fecha: string
-    tipo: string
-    sub_tipo: string
-    ya_cargado: boolean
-}
-
-export const conciliacion_banco = async (data: FormData) => {
-    try {
-        const response = await apiClient.post(`${TESORERIA_URL}conciliacion_bancaria/`, data, { withCredentials: true });
-        return response.data;
-    } catch (error) {
-        console.error('Error al realizar la conciliación bancaria:', error);
-        throw error;
-    }
-}
-
-export const cargar_gasto_bancario = async (mov: Movimiento) => {
-    try {
-        const response = await apiClient.post(`${TESORERIA_URL}conciliacion_bancaria/gasto_bancario/`, mov, { withCredentials: true });
-        return response;
-    } catch (error) {
-        console.error('Error al cargar el gasto bancario:', error);
-        throw error;
-    }
-}
-
-export const crear_pago_desde_plantilla = async (movimiento: any, plantilla_id: number, monto: number) => {
-    try {
-        const response = await apiClient.post(`${TESORERIA_URL}conciliacion_bancaria/pago_plantilla/`, {
-            movimiento,
-            plantilla_id,
-            monto
-        }, { withCredentials: true });
-        return response;
-    } catch (error) {
-        console.error('Error al crear pago desde plantilla:', error);
         throw error;
     }
 }

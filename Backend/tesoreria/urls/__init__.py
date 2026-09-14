@@ -3,7 +3,6 @@ from .. import views
 from ..views import presupuestos
 from ..views import carga_caja
 from rest_framework.routers import DefaultRouter
-from ..banco.conciliacion import ConciliacionCSVUploadView, CrearGastoBancario, CrearPagoDesdePlantilla, CrearPagosMultiplesDesdePlantilla
 app_name = "tesoreria"
 router = DefaultRouter()
 router.register(r"registros", views.RegistroViewSet, basename="registro")
@@ -45,14 +44,9 @@ urlpatterns = [
     path("<int:pk>/asociados/",views.RegistrosAsociados.as_view(), name="registros_asociados"),
     path("tareas/",views.TareasList.as_view(), name="tareas"),
     path("tareas/<int:pk>/",views.TareaDetail.as_view(), name="tarea_detail"),
-    path("conciliacion_bancaria/",ConciliacionCSVUploadView.as_view(), name="conciliacion_bancaria"),
-    path("conciliacion_bancaria/gasto_bancario/",CrearGastoBancario.as_view(), name="gasto_bancario"),
-    path("conciliacion_bancaria/pago_plantilla/",CrearPagoDesdePlantilla.as_view(), name="pago_plantilla"),
-    path("conciliacion_bancaria/pagos_multiples_plantilla/",CrearPagosMultiplesDesdePlantilla.as_view(), name="pagos_multiples_plantilla"),
     path("plantillas/",views.PlantillaRegistroList.as_view(), name="plantilla_index"),
     path("plantillas/<int:pk>/",views.PlantillaRegistroDetail.as_view(), name="plantilla_detail"),
     path("subir_archivo/",views.SubirArchivoRegistro.as_view(), name="cargar_archivo"),
-    path("fci/",views.FCI.as_view(), name="fci"),
 
     path("carga_caja/", carga_caja.CargaCaja.as_view(), name="carga_caja"),
 ]
