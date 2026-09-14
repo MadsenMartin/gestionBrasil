@@ -1,8 +1,15 @@
 from io import BytesIO
 import os
+import tempfile
 import zipfile
-from django.http import HttpResponse
+from datetime import date, datetime
 
+import openpyxl
+from django.core.files.base import ContentFile
+from django.http import HttpResponse
+from django.utils.dateparse import parse_date
+
+from shared.models import Moneda, Municipio
 from tesoreria.models import Caja, Registro
 from tesoreria.models.pagos import PagoFactura
 from .models import Documento, EstadoDocumento, Persona, UnidadDeNegocio, ClienteProyecto, Imputacion, TiposDocumento
@@ -563,4 +570,255 @@ class InformarPagoDocumento(APIView):
         )
         registro.documento.set([documento])
         return registro
+
+
+class ImportarDocumentos(APIView):
+    """
+    Importación masiva de documentos vía Excel + ZIP.
+
+    Campos del request (multipart/form-data):
+      - excel        : archivo .xlsx generado por el agente IA
+      - archivos     : ZIP con todos los PDFs/imágenes referenciados
+      - pagina       : nombre de la hoja del Excel (default: "Facturas")
+      - receptor_cnpj: CNPJ del receptor (no está en el Excel, aplica a todas las filas)
+
+    La columna "Nombre_Archivo" del Excel debe contener el nombre del PDF/imagen.
+    Se usa solo el basename, por si el agente pone rutas completas.
+
+    Mapeo de columnas Excel → campos del modelo (definido en COLUMN_MAP):
+      Tipo_de_Documento_Sistema → tipo_documento
+      Data_Emissao              → fecha_documento
+      Fornecedor_Sistema        → proveedor  (CNPJ o Razón Social)
+      Serie                     → serie
+      Numero_Nota               → numero
+      Año/Mes_Imputación_Gasto  → añomes_imputacion_gasto
+      Año/Mes_Imputación_Contable → añomes_imputacion_contable
+      Tem_CNO?                  → tiene_cno
+      Unidad_de_Negocio         → unidad_de_negocio
+      Cliente/Proyecto          → cliente_proyecto
+      Imputación                → imputacion
+      Descricao_Servicos (Concepto) → concepto
+      Valor_Total               → total
+      ISS                       → impuestos_retidos
+      Moeda                     → moneda
+      Nombre_Archivo            → archivo
+      Fornecedor_Municipio      → municipio
+
+    Devuelve: { "creados": N, "errores": [{"fila": N, "error": "..."}] }
+    """
+
+    # Mapeo: header del Excel en minúsculas → nombre del campo interno
+    COLUMN_MAP = {
+        'tipo_de_documento_sistema':      'tipo_documento',
+        'data_emissao':                   'fecha_documento',
+        'fornecedor_sistema':             'proveedor',
+        'serie':                          'serie',
+        'numero_nota':                    'numero',
+        'chave_acesso':                   '_ignorar',
+        'año/mes_imputación_gasto':       'añomes_imputacion_gasto',
+        'año/mes_imputación_contable':    'añomes_imputacion_contable',
+        'tem_cno?':                       'tiene_cno',
+        'unidad_de_negocio':              'unidad_de_negocio',
+        'cliente/proyecto':               'cliente_proyecto',
+        'imputación':                     'imputacion',
+        'descricao_servicos (concepto)':  'concepto',
+        'valor_total':                    'total',
+        'iss':                            'impuestos_retidos',
+        'moeda':                          'moneda',
+        'nombre_archivo':                 'archivo',
+        'fornecedor_municipio':           'municipio',
+        'estado':                         '_ignorar',
+    }
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        excel_file = request.FILES.get('excel')
+        zip_file = request.FILES.get('archivos')
+
+        if not excel_file or not zip_file:
+            return Response(
+                {'error': 'Se requieren los campos "excel" y "archivos"'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        receptor_cnpj = request.data.get('receptor_cnpj')
+        if not receptor_cnpj:
+            return Response(
+                {'error': 'Se requiere el campo "receptor_cnpj"'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        pagina = request.data.get('pagina', 'Facturas')
+
+        try:
+            wb = openpyxl.load_workbook(excel_file, data_only=True)
+        except Exception as e:
+            return Response({'error': f'No se pudo leer el Excel: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if pagina not in wb.sheetnames:
+            return Response(
+                {'error': f'La hoja "{pagina}" no existe. Hojas disponibles: {wb.sheetnames}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        ws = wb[pagina]
+
+        try:
+            zip_obj = zipfile.ZipFile(zip_file)
+        except zipfile.BadZipFile:
+            return Response({'error': 'El archivo ZIP no es válido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Normalizar headers: minúsculas, strip → traducir por COLUMN_MAP
+        raw_headers = [
+            str(cell.value).strip().lower() if cell.value is not None else ''
+            for cell in ws[1]
+        ]
+        headers = [self.COLUMN_MAP.get(h, h) for h in raw_headers]
+
+        created = 0
+        errors = []
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            zip_obj.extractall(tmpdir)
+            zip_obj.close()
+
+            # Mapa flat: basename en minúsculas → ruta completa en tmpdir
+            file_map = {}
+            for root, _dirs, files in os.walk(tmpdir):
+                for fname in files:
+                    file_map[fname.lower()] = os.path.join(root, fname)
+
+            for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+                if all(v is None for v in row):
+                    continue
+                row_data = {headers[i]: row[i] for i in range(min(len(headers), len(row)))}
+
+                try:
+                    with transaction.atomic():
+                        documento = self._crear_documento(row_data, file_map, receptor_cnpj)
+                        EstadoDocumento.objects.create(documento=documento, estado=1, usuario=request.user)
+                    created += 1
+                except Exception as e:
+                    errors.append({'fila': row_idx, 'error': str(e)})
+
+        return Response({'creados': created, 'errores': errors}, status=status.HTTP_201_CREATED)
+
+    # ------------------------------------------------------------------
+    # helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _get(row_data, key, default=None):
+        v = row_data.get(key)
+        if v is None:
+            return default
+        if isinstance(v, str):
+            v = v.strip()
+            return v if v else default
+        return v
+
+    def _crear_documento(self, row_data, file_map, receptor_cnpj):
+        get = lambda key, default=None: self._get(row_data, key, default)
+
+        # --- FKs obligatorios ---
+        tipo_doc_val = get('tipo_documento')
+        if not tipo_doc_val:
+            raise ValueError('Tipo_de_Documento_Sistema es obligatorio')
+        tipo_documento = TiposDocumento.objects.get(tipo_documento__iexact=tipo_doc_val)
+
+        # Proveedor: intenta por CNPJ primero, luego por razón social
+        proveedor_val = get('proveedor')
+        if not proveedor_val:
+            raise ValueError('Fornecedor_Sistema es obligatorio')
+        try:
+            proveedor = Persona.objects.get(cnpj=proveedor_val, proveedor_receptor=1)
+        except Persona.DoesNotExist:
+            proveedor = Persona.objects.get(razon_social__iexact=proveedor_val, proveedor_receptor=1)
+
+        receptor = Persona.objects.get(cnpj=receptor_cnpj, proveedor_receptor=2)
+
+        moneda_val = get('moneda')
+        if not moneda_val:
+            raise ValueError('Moeda es obligatorio')
+        moneda = Moneda.objects.get(nombre__iexact=moneda_val)
+
+        # --- FKs opcionales ---
+        unidad_val = get('unidad_de_negocio')
+        unidad = UnidadDeNegocio.objects.get(unidad_de_negocio__iexact=unidad_val) if unidad_val else None
+
+        cliente_val = get('cliente_proyecto')
+        cliente = ClienteProyecto.objects.get(cliente_proyecto__iexact=cliente_val) if cliente_val else None
+
+        imputacion_val = get('imputacion')
+        imputacion = Imputacion.objects.get(imputacion__iexact=imputacion_val) if imputacion_val else None
+
+        municipio_val = get('municipio')
+        municipio = Municipio.objects.get(nombre__iexact=municipio_val) if municipio_val else None
+
+        # --- Archivo ---
+        archivo_path = get('archivo')
+        if not archivo_path:
+            raise ValueError('Nombre_Archivo es obligatorio')
+        filename = os.path.basename(str(archivo_path))
+        if filename.lower() not in file_map:
+            raise ValueError(f'Archivo "{filename}" no encontrado en el ZIP')
+        with open(file_map[filename.lower()], 'rb') as f:
+            archivo_contenido = ContentFile(f.read(), name=filename)
+
+        # --- Fecha ---
+        fecha_raw = get('fecha_documento')
+        if isinstance(fecha_raw, datetime):
+            fecha_documento = fecha_raw.date()
+        elif isinstance(fecha_raw, date):
+            fecha_documento = fecha_raw
+        elif fecha_raw:
+            fecha_documento = parse_date(str(fecha_raw))
+            if not fecha_documento:
+                raise ValueError(f'Data_Emissao inválida: {fecha_raw}')
+        else:
+            raise ValueError('Data_Emissao es obligatorio')
+
+        # --- Campos numéricos obligatorios ---
+        numero_val = get('numero')
+        if numero_val is None:
+            raise ValueError('Numero_Nota es obligatorio')
+
+        añomes_gasto = get('añomes_imputacion_gasto')
+        if añomes_gasto is None:
+            raise ValueError('Año/Mes_Imputación_Gasto es obligatorio')
+
+        añomes_contable = get('añomes_imputacion_contable')
+        if añomes_contable is None:
+            raise ValueError('Año/Mes_Imputación_Contable es obligatorio')
+
+        # --- tiene_cno: acepta "sim", "si", "true", "1", etc. ---
+        tiene_cno_val = get('tiene_cno', False)
+        if isinstance(tiene_cno_val, str):
+            tiene_cno = tiene_cno_val.lower() in ('true', '1', 'si', 'sí', 'yes', 'sim')
+        else:
+            tiene_cno = bool(tiene_cno_val)
+
+        documento = Documento(
+            tipo_documento=tipo_documento,
+            fecha_documento=fecha_documento,
+            proveedor=proveedor,
+            receptor=receptor,
+            serie=int(get('serie', 0)),
+            numero=int(numero_val),
+            añomes_imputacion_gasto=int(añomes_gasto),
+            añomes_imputacion_contable=int(añomes_contable),
+            tiene_cno=tiene_cno,
+            unidad_de_negocio=unidad,
+            cliente_proyecto=cliente,
+            imputacion=imputacion,
+            concepto=str(get('concepto', '')),
+            comentario=get('comentario'),
+            total=get('total'),
+            impuestos_retidos=get('impuestos_retidos'),
+            moneda=moneda,
+            municipio=municipio,
+            archivo=archivo_contenido,
+        )
+        documento.save()
+        return documento
 

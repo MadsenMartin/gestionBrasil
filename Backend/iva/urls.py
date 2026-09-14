@@ -23,6 +23,7 @@ urlpatterns = [
     path('logout/', views.logout, name='logout'),
     path('<int:pk>/restaurar/', views.RestaurarDocumento.as_view(), name='restaurar_documento'),
     path('exportar/', views.ExportarDocumentos.as_view(), name='exportar_archivos'),
+    path('importar/', views.ImportarDocumentos.as_view(), name='importar_documentos'),
     path('pagar_documento/', views.InformarPagoDocumento.as_view(), name='pagar_documento'),
 ]
 
