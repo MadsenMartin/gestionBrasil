@@ -30,7 +30,7 @@ export default function Dashboard() {
           <div className="container mx-auto p-4">
             <header className="text-center py-6 mb-6">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                Gestión Quinto Diseño
+                Gestión Brasil
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Seleccione un módulo para comenzar</p>
             </header>
