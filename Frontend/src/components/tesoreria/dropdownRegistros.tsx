@@ -26,6 +26,7 @@ export function DropdownRegistros({ toast, setSelectMode, addItem }) {
       <DropdownMenuContent className="w-56">
         <DialogMovEntreCuentas
           toast={toast}
+          addItem={addItem}
           trigger={
             <DropdownMenuItem onSelect={(event) => event.preventDefault()}>
               Mov. entre cuentas

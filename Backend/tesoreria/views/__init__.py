@@ -331,7 +331,7 @@ class MovimientoEntreCuentas(APIView):
                 'caja_contrapartida': caja_destino,
                 'imputacion': 'Mov. entre cuentas',
                 'monto_op_rec': -monto,
-                'moneda': caja_origen.moneda,
+                'moneda': caja_origen.moneda.pk,
                 'tipo_de_cambio': tipo_de_cambio,
                 'observacion': observacion,
                 'realizado':True
@@ -352,7 +352,7 @@ class MovimientoEntreCuentas(APIView):
                 'imputacion': 'Mov. entre cuentas',
                 'caja_contrapartida': caja_origen,
                 'monto_op_rec': monto,
-                'moneda': caja_origen.moneda,
+                'moneda': caja_origen.moneda.pk,
                 'tipo_de_cambio': tipo_de_cambio,
                 'observacion': observacion
             }
@@ -364,7 +364,10 @@ class MovimientoEntreCuentas(APIView):
                 transaction.set_rollback(True)
                 raise ValidationError(registro_serializer.errors)
             
-            return Response({'detail': 'Movimiento entre cuentas procesado correctamente'}, status=status.HTTP_201_CREATED)
+            return Response(
+                [RegistroSerializer(registro_1).data, RegistroSerializer(registro_2).data],
+                status=status.HTTP_201_CREATED
+            )
         
         else:
             transaction.set_rollback(True)

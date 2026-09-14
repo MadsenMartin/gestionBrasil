@@ -21,7 +21,7 @@ const formSchema = z.object({
     tipo_de_cambio: z.coerce.number().optional()
 })
 
-export function DialogMovEntreCuentas({ toast, trigger }) {
+export function DialogMovEntreCuentas({ toast, trigger, addItem }) {
 
     const [showForm, setShowForm] = useState(false)
     // Estado para guardar la moneda de la caja origen y destino, de forma de poder validar si se debe ingresar el tipo de cambio
@@ -51,6 +51,8 @@ export function DialogMovEntreCuentas({ toast, trigger }) {
             }
             form.reset()
             toast("Movimiento entre cuentas creado exitosamente")
+            addItem(response.data[0])
+            addItem(response.data[1])
             setShowForm(false)
         } catch (error) {
             console.error('Error:', error)
