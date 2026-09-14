@@ -50,7 +50,7 @@ class ProveedorFilter(InputFilter):
             return queryset
         return queryset.filter(
             Q(proveedor__razon_social__icontains=texto)
-            | Q(proveedor__nombre_fantasia_pila__icontains=texto)
+            | Q(proveedor__nombre_fantasia__icontains=texto)
         )
 
 
