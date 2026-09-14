@@ -600,7 +600,7 @@ class ImportarDocumentos(APIView):
       Descricao_Servicos (Concepto) → concepto
       Valor_Total               → total
       ISS                       → impuestos_retidos
-      Moeda                     → moneda
+      Moneda                     → moneda
       Nombre_Archivo            → archivo
       Fornecedor_Municipio      → municipio
 
@@ -624,7 +624,7 @@ class ImportarDocumentos(APIView):
         'descricao_servicos (concepto)':  'concepto',
         'valor_total':                    'total',
         'iss':                            'impuestos_retidos',
-        'moeda':                          'moneda',
+        'moneda':                          'moneda',
         'nombre_archivo':                 'archivo',
         'fornecedor_municipio':           'municipio',
         'estado':                         '_ignorar',
@@ -739,7 +739,7 @@ class ImportarDocumentos(APIView):
 
         moneda_val = get('moneda')
         if not moneda_val:
-            raise ValueError('Moeda es obligatorio')
+            raise ValueError('Moneda es obligatorio')
         moneda = Moneda.objects.get(nombre__iexact=moneda_val)
 
         # --- FKs opcionales ---

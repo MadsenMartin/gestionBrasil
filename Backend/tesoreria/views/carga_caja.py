@@ -149,7 +149,8 @@ class CargaCaja(APIView):
             caja=caja_contrapartida,
             monto_op_rec=-monto_op_rec,
             moneda=caja_contrapartida.moneda,
-            tipo_de_cambio=item['tipo_de_cambio']
+            tipo_de_cambio=item['tipo_de_cambio'],
+            activo=True,
         ).first()
         
         # Si ya existe, no crear duplicado
