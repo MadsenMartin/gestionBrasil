@@ -371,7 +371,7 @@ class MovimientoEntreCuentas(APIView):
         
         else:
             transaction.set_rollback(True)
-            return Response({'error de serializer' + serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error de serializer': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 class CobranzasList(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
