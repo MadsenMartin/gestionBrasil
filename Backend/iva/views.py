@@ -612,6 +612,8 @@ class ImportarDocumentos(APIView):
         'tipo_de_documento_sistema':      'tipo_documento',
         'data_emissao':                   'fecha_documento',
         'fornecedor_sistema':             'proveedor',
+        'fornecedor_razao_social':        'razon_social_proveedor',
+        'fornecedor_cnpj':                'cnpj_proveedor',
         'serie':                          'serie',
         'numero_nota':                    'numero',
         'chave_acesso':                   '_ignorar',
@@ -624,11 +626,14 @@ class ImportarDocumentos(APIView):
         'descricao_servicos (concepto)':  'concepto',
         'valor_total':                    'total',
         'iss':                            'impuestos_retidos',
-        'moneda':                          'moneda',
+        'moeda':                          'moneda',
         'nombre_archivo':                 'archivo',
         'fornecedor_municipio':           'municipio',
         'estado':                         '_ignorar',
     }
+
+    # Fila (1-indexed) donde están los encabezados en el Excel generado por el agente
+    HEADER_ROW = 2
 
     permission_classes = [permissions.IsAuthenticated]
 
@@ -669,9 +674,10 @@ class ImportarDocumentos(APIView):
             return Response({'error': 'El archivo ZIP no es válido'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Normalizar headers: minúsculas, strip → traducir por COLUMN_MAP
+        # Los encabezados están en la fila HEADER_ROW; los datos empiezan en la siguiente
         raw_headers = [
             str(cell.value).strip().lower() if cell.value is not None else ''
-            for cell in ws[1]
+            for cell in ws[self.HEADER_ROW]
         ]
         headers = [self.COLUMN_MAP.get(h, h) for h in raw_headers]
 
@@ -688,7 +694,8 @@ class ImportarDocumentos(APIView):
                 for fname in files:
                     file_map[fname.lower()] = os.path.join(root, fname)
 
-            for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            primera_fila_datos = self.HEADER_ROW + 1
+            for row_idx, row in enumerate(ws.iter_rows(min_row=primera_fila_datos, values_only=True), start=primera_fila_datos):
                 if all(v is None for v in row):
                     continue
                 row_data = {headers[i]: row[i] for i in range(min(len(headers), len(row)))}
@@ -733,7 +740,19 @@ class ImportarDocumentos(APIView):
         try:
             proveedor = Persona.objects.get(cnpj=proveedor_val, proveedor_receptor=1)
         except Persona.DoesNotExist:
-            proveedor = Persona.objects.get(razon_social__iexact=proveedor_val, proveedor_receptor=1)
+            try:
+                proveedor = Persona.objects.get(razon_social__iexact=proveedor_val, proveedor_receptor=1)
+            except Persona.DoesNotExist:
+                razon_social_val = get('razon_social_proveedor')
+                if not razon_social_val:
+                    raise ValueError('Proveedor no encontrado y no se proporcionó "Fornecedor_Razao_Social" para crear uno nuevo. Proveedor: ' + proveedor_val)
+                try:
+                    proveedor = Persona.objects.get(razon_social__iexact=razon_social_val, proveedor_receptor=1)
+                except Persona.DoesNotExist:
+                    cnpj_val = get('cnpj_proveedor')
+                    if not cnpj_val:
+                        raise ValueError('Proveedor no encontrado y no se proporcionó "Fornecedor_CNPJ" para crear uno nuevo. Razón social: ' + razon_social_val)
+                    proveedor = Persona.objects.get_or_create(razon_social=razon_social_val, cnpj=cnpj_val, proveedor_receptor=1)[0]
 
         receptor = Persona.objects.get(cnpj=receptor_cnpj, proveedor_receptor=2)
 
@@ -782,6 +801,10 @@ class ImportarDocumentos(APIView):
         numero_val = get('numero')
         if numero_val is None:
             raise ValueError('Numero_Nota es obligatorio')
+        try:
+            numero_val = int(numero_val)
+        except ValueError:
+            raise ValueError(f'Numero_Nota inválido, debe ser un entero: {numero_val}')
 
         añomes_gasto = get('añomes_imputacion_gasto')
         if añomes_gasto is None:

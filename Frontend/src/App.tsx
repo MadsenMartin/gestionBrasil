@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { DocumentosView } from './pages/shared/ListaDocumentos';
+import { ImportarDocumentosView } from './pages/shared/ImportarDocumentos';
 import { ProveedoresView } from './pages/shared/ListaProveedores';
 import { ReceptoresView } from './pages/shared/ListaReceptores';
 import { PagosView } from './pages/tesoreria/ListaPagos';
@@ -49,6 +50,7 @@ export default function App() {
               <Route path="" element={<Dashboard />} />
               <Route path="/" element={<Layout />}>
                 <Route path="iva" element={<DocumentosView />} />
+                <Route path="iva/importar" element={<ImportarDocumentosView />} />
                 <Route path="proveedores" element={<ProveedoresView />} />
                 <Route path="receptores" element={<ReceptoresView />} />
                 <Route path="cobranzas" element={<CobranzasView />} />

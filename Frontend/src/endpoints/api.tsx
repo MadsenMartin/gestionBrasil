@@ -56,6 +56,7 @@ const REGISTROS_PRESUPUESTO_CLIENTE_URL = `${API_BASE_URL}/api/presupuestos_clie
 const CARGA_CAJA_URL = `${API_BASE_URL}/api/tesoreria/carga_caja/`
 const MARCAR_COMO_RECUPERADO_URL = `${REGISTROS_URL}marcar_como_recuperado/`
 const EXPORTAR_DOCUMENTOS_URLS = `${DOCUMENTOS_URL}exportar/`
+const IMPORTAR_DOCUMENTOS_URL = `${DOCUMENTOS_URL}importar/`
 const DESACOPIOS_URL = `${API_BASE_URL}/api/acopios/desacopios/`
 const ACOPIOS_URL = `${API_BASE_URL}/api/acopios/`
 const ARTICULOS_URL = `${API_BASE_URL}/api/acopios/articulos/`
@@ -760,6 +761,28 @@ export const exportar_documentos = async (data) => {
         return response;
     } catch (error) {
         console.error('Error al exportar los documentos:', error);
+        throw error;
+    }
+}
+
+export type ResultadoImportacionDocumentos = {
+    creados: number
+    errores: { fila: number, error: string }[]
+}
+
+/**
+ * Importación masiva de documentos: Excel (una fila por documento) + ZIP con los PDFs/imágenes.
+ * @param data FormData con los campos "excel", "archivos", "receptor_cnpj" y opcionalmente "pagina"
+ */
+export const importar_documentos = async (data: FormData) => {
+    try {
+        const response = await apiClient.post<ResultadoImportacionDocumentos>(IMPORTAR_DOCUMENTOS_URL, data, {
+            withCredentials: true,
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response;
+    } catch (error) {
+        console.error('Error al importar los documentos:', error);
         throw error;
     }
 }

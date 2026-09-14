@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DialogAyuda } from "../ayuda/dialogAyuda"
 import { DialogExportacionComprobantes } from "./dialogExportacionComprobantes"
+import { Link } from "react-router-dom"
 
 type DropdownDocumentosProps = {
   setSelectMode: any
@@ -34,6 +35,9 @@ export function DropdownDocumentos({setSelectMode}: DropdownDocumentosProps) {
           <DialogExportacionComprobantes
             trigger={<DropdownMenuItem onSelect={(e) => {e.preventDefault()}}>Exportar comprobantes</DropdownMenuItem>}
           />
+          <DropdownMenuItem asChild>
+            <Link to="/iva/importar">Importar comprobantes</Link>
+          </DropdownMenuItem>
 
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
