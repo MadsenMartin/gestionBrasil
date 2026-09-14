@@ -1,0 +1,15 @@
+{% load i18n %}
+<h3>{{ title }}</h3>
+<ul class="admin-filter-{{ spec.parameter_name }}">
+  <li style="list-style: none; padding: 0 8px;">
+    <form method="get" action="">
+      {% for clave, valor in choices.0.query_parts %}
+        <input type="hidden" name="{{ clave }}" value="{{ valor }}">
+      {% endfor %}
+      <input type="text" name="{{ spec.parameter_name }}"
+             value="{{ spec.value|default_if_none:'' }}"
+             placeholder="{{ spec.placeholder }}"
+             style="width: 100%; box-sizing: border-box; margin: 4px 0 8px;">
+    </form>
+  </li>
+</ul>

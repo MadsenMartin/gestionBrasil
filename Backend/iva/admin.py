@@ -13,6 +13,15 @@ class DocumentoAdmin(admin.ModelAdmin):
 admin.site.register(Documento, DocumentoAdmin)
 
 admin.site.register(EstadoDocumento)
-admin.site.register(Imputacion)
-admin.site.register(ClienteProyecto)
-admin.site.register(UnidadDeNegocio)
+class ImputacionAdmin(admin.ModelAdmin):
+    search_fields = ('imputacion',)
+    list_display = ('imputacion',)
+admin.site.register(Imputacion, ImputacionAdmin)
+class ClienteProyectoAdmin(admin.ModelAdmin):
+    search_fields = ('cliente_proyecto',)
+    list_display = ('cliente_proyecto',)
+admin.site.register(ClienteProyecto, ClienteProyectoAdmin)
+class UnidadDeNegocioAdmin(admin.ModelAdmin):
+    search_fields = ('unidad_de_negocio',)
+    list_display = ('unidad_de_negocio',)
+admin.site.register(UnidadDeNegocio, UnidadDeNegocioAdmin)
