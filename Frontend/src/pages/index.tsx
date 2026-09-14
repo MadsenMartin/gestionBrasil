@@ -1,4 +1,4 @@
-import { Calculator, FileText, BarChart3, Package, CircleDollarSign, Receipt, CreditCard, Landmark, PiggyBank, Truck, Users, UserCircle, Briefcase } from 'lucide-react'
+import { Calculator, FileText, BarChart3, CircleDollarSign, Receipt, CreditCard, Landmark, Users, UserCircle, Briefcase } from 'lucide-react'
 import { Card } from "@/components/ui/card"
 import { useEffect, useState } from 'react'
 import { get_generico } from '@/endpoints/api'
@@ -96,14 +96,6 @@ const modules = [
     url: "/reportes"
   },
   {
-    icon: <Package className="h-5 w-5" />,
-    title: "Inventario",
-    description: "Gestión de stock",
-    category: "Administración",
-    bgColor: "bg-orange-500/10 dark:bg-orange-500/20",
-    url: "/inventario"
-  },
-  {
     icon: <CircleDollarSign className="h-5 w-5" />,
     title: "Cajas",
     description: "Gestión de movimientos de caja",
@@ -138,26 +130,10 @@ const modules = [
   {
     icon: <Landmark className="h-5 w-5" />,
     title: "MEP",
-    description: "Medios de pago",
+    description: "Tipos de cambio",
     category: "Tesorería",
     bgColor: "bg-rose-500/10 dark:bg-rose-500/20",
     url: "/mep"
-  },
-  {
-    icon: <PiggyBank className="h-5 w-5" />,
-    title: "Inversiones",
-    description: "Gestión de inversiones",
-    category: "Inversiones",
-    bgColor: "bg-emerald-500/10 dark:bg-emerald-500/20",
-    url: "/inversiones"
-  },
-  {
-    icon: <Truck className="h-5 w-5" />,
-    title: "Pedidos/Entregas",
-    description: "Gestión de pedidos",
-    category: "Obra",
-    bgColor: "bg-amber-500/10 dark:bg-amber-500/20",
-    url: "/pedidos"
   },
   {
     icon: <Users className="h-5 w-5" />,

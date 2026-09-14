@@ -25,11 +25,6 @@ const itemsRecepcion = [
     url: "/iva",
     icon: Files,
   },
-  {
-    title: "Inventario",
-    url: "/inventario",
-    icon: Warehouse,
-  },
 ]
 
 const itemsAdministracion = [
@@ -73,22 +68,6 @@ const itemsTesoreria = [
   }
 ]
 
-const itemsAcopios = [
-  {
-    title: "Acopios",
-    url: "/acopios",
-    icon: ScrollText,
-    disabled: false,
-  },
-  {
-    title: "Desacopios",
-    url: "/desacopios",
-    icon: ScrollText,
-    disabled: false,
-  }
-
-]
-
 /*const itemsObra = [
   {
     title: "Pedidos/Entregas",
@@ -98,14 +77,6 @@ const itemsAcopios = [
   },
 ]*/
 
-const itemsInversiones = [
-  {
-    title: "Inversiones",
-    url: "/inversiones",
-    icon: HousePlus,
-    disabled: true,
-  },
-]
 
 const itemsGeneral = [
   {
@@ -184,29 +155,6 @@ export function AppSidebar() {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-
-            {!loading && !isRecepcion() && (
-              <SidebarGroup>
-                <SidebarGroupLabel className="font-bold">Inversiones</SidebarGroupLabel>
-                <SidebarSeparator />
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {itemsMap(itemsInversiones)}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
-
-            <SidebarGroup>
-              <SidebarGroupLabel className="font-bold">Acopios</SidebarGroupLabel>
-              <SidebarSeparator />
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {itemsMap(itemsAcopios)}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
             <SidebarGroup>
               <SidebarGroupLabel className="font-bold">General</SidebarGroupLabel>
               <SidebarSeparator />
