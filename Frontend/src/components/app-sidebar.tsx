@@ -1,4 +1,4 @@
-import { User, Files, Truck, House, Coins, Landmark, Warehouse, HandCoins, ChartLine, Receipt, HousePlus, Banknote, PiggyBank, ListTodo, ScrollText } from "lucide-react"
+import { User, Files, Truck, House, Coins, Landmark, HandCoins, ChartLine, Receipt, Banknote, PiggyBank, ListTodo } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
