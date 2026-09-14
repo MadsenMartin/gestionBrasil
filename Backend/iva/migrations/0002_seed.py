@@ -1,12 +1,12 @@
 #import tesoreria.models
 import iva.models
 import shared.models
-from django.conf import settings
-from django.db import migrations, models
+from django.db import migrations
 
 
 def seed_data(apps, schema_editor):
         iva.models.Imputacion.objects.get_or_create(imputacion='Mov. entre cuentas', activo=True)
+        iva.models.Imputacion.objects.get_or_create(imputacion='Diferencia de cambio', activo=True)
         shared.models.Moneda.objects.get_or_create(nombre='R$', activo=True)
         shared.models.Moneda.objects.get_or_create(nombre='U$D', activo=True)
         #iva.models.Caja.objects.create(caja='Santander BRL', activo=True, moneda=shared.models.Moneda.objects.get(nombre='BRL'), codigo='BSRS')

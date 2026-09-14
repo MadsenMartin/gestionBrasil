@@ -316,7 +316,7 @@ class MovimientoEntreCuentas(APIView):
             tipo_de_cambio = datos['tipo_de_cambio'] or 1
 
             # Si ambas cajas son de USD traer la cotización del día de la tabla DolarMEP
-            if caja_origen.moneda.id == caja_destino.moneda.id == 2:
+            if caja_origen.moneda.nombre == caja_destino.moneda.nombre == "U$D":
                 try:
                     tc = DolarMEP.objects.get(fecha=fecha)
                     tipo_de_cambio = tc.compra
@@ -709,7 +709,7 @@ class DolarMEPList(generics.ListCreateAPIView):
                             return Response(reg_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
                         
                 # Si el registro es en USD y el tipo de cambio es 1, quiere decir que le falta el TC, entonces multiplicamos los montos por el TC MEP y guardamos el TC
-                elif reg.moneda.id == 2 and tc_reg and tc_reg == 1:
+                elif reg.moneda.nombre == "U$D" and tc_reg and tc_reg == 1:
                     try:
                         reg.tipo_de_cambio = tc_mep
                         reg.monto_gasto_ingreso_neto = (reg.monto_gasto_ingreso_neto * tc_mep).quantize(Decimal('0.0001')) if reg.monto_gasto_ingreso_neto else None
