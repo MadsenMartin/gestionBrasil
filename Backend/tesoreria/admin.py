@@ -23,7 +23,7 @@ class RegistroAdmin(SimpleHistoryAdmin):
     )
     search_fields = (
         'proveedor__razon_social',
-        'proveedor__nombre_fantasia_pila',
+        'proveedor__nombre_fantasia',
         'cliente_proyecto__cliente_proyecto',
         'imputacion__imputacion',
         'observacion',
@@ -69,7 +69,7 @@ class RegistroAdmin(SimpleHistoryAdmin):
     def get_proveedor(self, obj):
         if not obj.proveedor:
             return '-'
-        return obj.proveedor.nombre_fantasia_pila or obj.proveedor.razon_social
+        return obj.proveedor.nombre_fantasia or obj.proveedor.razon_social
 
     @admin.display(description='Total', ordering='monto_gasto_ingreso_neto')
     def get_total(self, obj):
