@@ -228,7 +228,7 @@ class RegistroSerializer(serializers.ModelSerializer):
     presupuesto = serializers.StringRelatedField(required=False, allow_null=True)
     observacion = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     realizado = serializers.BooleanField(default=False)
-    tipo_de_cambio = serializers.DecimalField(max_digits=10, decimal_places=2)
+    tipo_de_cambio = serializers.DecimalField(max_digits=10, decimal_places=4)
     total_gasto_ingreso = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
 
     class Meta:
@@ -486,10 +486,10 @@ class PagoUISerializer(serializers.ModelSerializer):
 class MovimientoEntreCuentasSerializer(serializers.Serializer):
     caja_origen = serializers.SlugRelatedField(slug_field='caja', queryset=Caja.objects.all())
     caja_destino = serializers.SlugRelatedField(slug_field='caja', queryset=Caja.objects.all())
-    monto = serializers.DecimalField(max_digits=20, decimal_places=2)
+    monto = serializers.DecimalField(max_digits=20, decimal_places=4)
     observacion = serializers.CharField(allow_null=True, required=False, allow_blank=True)
     fecha = serializers.DateField()
-    tipo_de_cambio = serializers.DecimalField(max_digits=20, decimal_places=2, required=False, allow_null=True)
+    tipo_de_cambio = serializers.DecimalField(max_digits=20, decimal_places=4, required=False, allow_null=True)
 
     class Meta:
         fields = ["caja_origen", "caja_destino", "monto", "fecha", "tipo_de_cambio"]
