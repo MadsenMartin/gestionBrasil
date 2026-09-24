@@ -767,6 +767,7 @@ export const exportar_documentos = async (data) => {
 
 export type ResultadoImportacionDocumentos = {
     creados: number
+    omitidos: number
     errores: { fila: number, error: string }[]
 }
 

@@ -603,8 +603,9 @@ class ImportarDocumentos(APIView):
       Moneda                     → moneda
       Nombre_Archivo            → archivo
       Fornecedor_Municipio      → municipio
+      Estado                    → estado  (opcional: "Procesado" se saltea, "Sin procesar"/vacío se importa)
 
-    Devuelve: { "creados": N, "errores": [{"fila": N, "error": "..."}] }
+    Devuelve: { "creados": N, "omitidos": N, "errores": [{"fila": N, "error": "..."}] }
     """
 
     # Mapeo: header del Excel en minúsculas → nombre del campo interno
@@ -629,8 +630,12 @@ class ImportarDocumentos(APIView):
         'moeda':                          'moneda',
         'nombre_archivo':                 'archivo',
         'fornecedor_municipio':           'municipio',
-        'estado':                         '_ignorar',
+        'estado':                         'estado',
     }
+
+    # Valores aceptados en la columna opcional "Estado" (normalizados a minúsculas)
+    ESTADO_PROCESADO = 'procesado'
+    ESTADO_SIN_PROCESAR = 'sin procesar'
 
     # Fila (1-indexed) donde están los encabezados en el Excel generado por el agente
     HEADER_ROW = 2
@@ -682,6 +687,7 @@ class ImportarDocumentos(APIView):
         headers = [self.COLUMN_MAP.get(h, h) for h in raw_headers]
 
         created = 0
+        omitidos = 0
         errors = []
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -700,6 +706,15 @@ class ImportarDocumentos(APIView):
                     continue
                 row_data = {headers[i]: row[i] for i in range(min(len(headers), len(row)))}
 
+                # Columna opcional "Estado": las filas ya procesadas se saltean
+                estado_val = str(self._get(row_data, 'estado', self.ESTADO_SIN_PROCESAR)).lower()
+                if estado_val == self.ESTADO_PROCESADO:
+                    omitidos += 1
+                    continue
+                if estado_val != self.ESTADO_SIN_PROCESAR:
+                    errors.append({'fila': row_idx, 'error': f'Estado inválido: "{estado_val}". Valores posibles: "Procesado" o "Sin procesar"'})
+                    continue
+
                 try:
                     with transaction.atomic():
                         documento = self._crear_documento(row_data, file_map, receptor_cnpj)
@@ -708,7 +723,7 @@ class ImportarDocumentos(APIView):
                 except Exception as e:
                     errors.append({'fila': row_idx, 'error': str(e)})
 
-        return Response({'creados': created, 'errores': errors}, status=status.HTTP_201_CREATED)
+        return Response({'creados': created, 'omitidos': omitidos, 'errores': errors}, status=status.HTTP_201_CREATED)
 
     # ------------------------------------------------------------------
     # helpers

@@ -43,6 +43,7 @@ const COLUMNAS = [
     { nombre: "Moeda", obligatoria: true, detalle: "Nombre exacto de la moneda (ej. R$, U$D)" },
     { nombre: "Nombre_Archivo", obligatoria: true, detalle: "Nombre del PDF/imagen dentro del ZIP" },
     { nombre: "Fornecedor_Municipio", obligatoria: false, detalle: "Nombre exacto del municipio" },
+    { nombre: "Estado", obligatoria: false, detalle: "Procesado (se saltea) / Sin procesar (se importa). Vacío = Sin procesar" },
 ]
 
 const selectClassName = "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
@@ -186,6 +187,7 @@ export function ImportarDocumentosView() {
                             <AlertTitle>Importación finalizada</AlertTitle>
                             <AlertDescription>
                                 Documentos creados: <span id="cantidad-creados">{resultado.creados}</span>.
+                                Filas omitidas (procesadas): <span id="cantidad-omitidos">{resultado.omitidos}</span>.
                                 Filas con error: <span id="cantidad-errores">{resultado.errores.length}</span>.
                             </AlertDescription>
                         </Alert>
