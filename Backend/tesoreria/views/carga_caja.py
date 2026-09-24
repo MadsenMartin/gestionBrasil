@@ -27,8 +27,10 @@ class CargaCaja(APIView):
             return None, None
         
         # Si se encuentra una caja con el nombre proporcionado, retorna la caja y None
-        if Caja.objects.filter(caja=item['nombre']).exists():
-            return Caja.objects.get(caja=item['nombre']), None
+        # Igual que con los proveedores no se distingue mayúsculas, pero si hay coincidencia exacta tiene prioridad
+        caja = Caja.objects.filter(caja=item['nombre']).first() or Caja.objects.filter(caja__iexact=item['nombre']).first()
+        if caja:
+            return caja, None
         
         # Si se encuentra un proveedor con el nombre proporcionado, retorna None y el proveedor
         if Persona.objects.filter(proveedor_receptor=1, activo=True).filter(Q(razon_social__iexact=item['nombre'])|Q(nombre_fantasia__iexact=item['nombre'])).exists():
@@ -138,26 +140,7 @@ class CargaCaja(APIView):
         """
         if not item['tipo_reg'] == "MC" or not caja_contrapartida:
             return None
-        
-        # Primero verificar si ya existe el registro
-        registro_existente = Registro.objects.filter(
-            fecha_reg=item['fecha'],
-            añomes_imputacion=item['fecha'].strftime('%Y%m'),
-            tipo_reg="MC",
-            caja_contrapartida=caja,
-            imputacion=Imputacion.objects.get(imputacion='Mov. entre cuentas'),
-            caja=caja_contrapartida,
-            monto_op_rec=-monto_op_rec,
-            moneda=caja_contrapartida.moneda,
-            tipo_de_cambio=item['tipo_de_cambio'],
-            activo=True,
-        ).first()
-        
-        # Si ya existe, no crear duplicado
-        if registro_existente:
-            return None
-        
-        # Si no existe, crear nuevo registro
+
         registro = Registro.objects.create(
             fecha_reg=item['fecha'],
             añomes_imputacion=item['fecha'].strftime('%Y%m'),
@@ -175,6 +158,27 @@ class CargaCaja(APIView):
 
         return registro
 
+    def mc_ya_registrado(self, item, caja_contrapartida: Caja, caja: Caja, monto_op_rec: Decimal, excluir_ids: set):
+        """
+        Busca en la caja que se está cargando una contrapartida generada al cargar el extracto de la otra caja.
+        Si existe, el MC es la misma transferencia vista desde el otro lado y ya está registrado en ambas cajas.
+
+        Las contrapartidas generadas se identifican por la imputación "Mov. entre cuentas": el registro principal
+        toma la imputación del Excel, así que dos MC iguales cargados desde el mismo lado no se consideran duplicados.
+        excluir_ids evita que dos MC iguales de la misma carga coincidan con la misma contrapartida.
+        """
+        if not item['tipo_reg'] == "MC" or not caja_contrapartida:
+            return None
+
+        return Registro.objects.filter(
+            fecha_reg=item['fecha'],
+            tipo_reg="MC",
+            caja=caja,
+            caja_contrapartida=caja_contrapartida,
+            imputacion__imputacion='Mov. entre cuentas',
+            monto_op_rec=monto_op_rec,
+            activo=True,
+        ).exclude(pk__in=excluir_ids).order_by('id').first()
 
     def diferencia_de_cambio(self, registro: Registro):
         """
@@ -205,6 +209,7 @@ class CargaCaja(APIView):
             try:
                 with transaction.atomic():
                     registros = []
+                    mc_conciliados = set()
 
                     flag_crear_proveedor = serializer.validated_data.get('flag_crear_proveedor', False)
 
@@ -221,6 +226,11 @@ class CargaCaja(APIView):
                         
                         if presupuesto == -1:
                             raise ValueError(f"Presupuesto no encontrado para: {item['presupuesto']}")
+
+                        mc_existente = self.mc_ya_registrado(item, caja_contrapartida, caja, monto_op_rec, mc_conciliados)
+                        if mc_existente:
+                            mc_conciliados.add(mc_existente.pk)
+                            continue
 
                         mc = self.movimiento_entre_cuentas(item, caja_contrapartida, caja, monto_op_rec)
                         if mc:

@@ -68,13 +68,49 @@ class MovimientoEntreCuentasTests(TestCase):
         self.assertIsNone(registro)
         self.assertEqual(Registro.objects.count(), 0)
 
-    def test_no_duplica_si_la_contrapartida_ya_existe(self):
+    def test_crea_contrapartida_aunque_ya_exista_una_igual(self):
+        # La detección de duplicados vive en mc_ya_registrado, no acá
         primero = self.view.movimiento_entre_cuentas(self.item(), self.efectivo, self.banco, Decimal('-100'))
         segundo = self.view.movimiento_entre_cuentas(self.item(), self.efectivo, self.banco, Decimal('-100'))
 
         self.assertIsNotNone(primero)
-        self.assertIsNone(segundo)
-        self.assertEqual(Registro.objects.count(), 1)
+        self.assertIsNotNone(segundo)
+        self.assertEqual(Registro.objects.count(), 2)
+
+    def test_mc_ya_registrado_encuentra_la_contrapartida_generada_desde_la_otra_caja(self):
+        # Se cargó el extracto de Banco (salida 100 a Efectivo): se generó la contrapartida en Efectivo
+        contrapartida = self.view.movimiento_entre_cuentas(self.item(), self.efectivo, self.banco, Decimal('-100'))
+
+        # Al cargar el extracto de Efectivo, la entrada de 100 desde Banco es la misma transferencia
+        encontrado = self.view.mc_ya_registrado(self.item(), self.banco, self.efectivo, Decimal('100'), set())
+
+        self.assertEqual(encontrado, contrapartida)
+
+    def test_mc_ya_registrado_ignora_registros_principales_y_excluidos(self):
+        contrapartida = self.view.movimiento_entre_cuentas(self.item(), self.efectivo, self.banco, Decimal('-100'))
+        Registro.objects.create(fecha_reg=date(2026, 9, 1), añomes_imputacion=202609, tipo_reg='MC', caja=self.efectivo,
+                                caja_contrapartida=self.banco, monto_op_rec=Decimal('100'), moneda=self.real)
+
+        casos = [
+            # Principal sin imputación "Mov. entre cuentas" (cargado desde el propio extracto)
+            (self.item(), self.banco, self.efectivo, Decimal('100'), {contrapartida.pk}),
+            # Otro monto, otra fecha, otra caja
+            (self.item(), self.banco, self.efectivo, Decimal('200'), set()),
+            (self.item(fecha=date(2026, 9, 2)), self.banco, self.efectivo, Decimal('100'), set()),
+            (self.item(), self.efectivo, self.banco, Decimal('100'), set()),
+            # No es MC
+            (self.item(tipo_reg='OP'), self.banco, self.efectivo, Decimal('100'), set()),
+        ]
+        for item, contra, caja, monto, excluir in casos:
+            with self.subTest(item=item, caja=caja, monto=monto, excluir=excluir):
+                self.assertIsNone(self.view.mc_ya_registrado(item, contra, caja, monto, excluir))
+
+    def test_mc_ya_registrado_ignora_contrapartidas_inactivas(self):
+        contrapartida = self.view.movimiento_entre_cuentas(self.item(), self.efectivo, self.banco, Decimal('-100'))
+        contrapartida.activo = False
+        contrapartida.save()
+
+        self.assertIsNone(self.view.mc_ya_registrado(self.item(), self.banco, self.efectivo, Decimal('100'), set()))
 
     def test_crea_contrapartida_si_cambia_monto_fecha_o_caja(self):
         self.view.movimiento_entre_cuentas(self.item(), self.efectivo, self.banco, Decimal('-100'))
@@ -163,3 +199,24 @@ class CargaCajaMovimientoEntreCuentasTests(TestCase):
 
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(Registro.objects.filter(caja=self.efectivo).count(), 2)
+
+    def test_cargar_el_extracto_de_la_otra_caja_no_duplica_el_mc(self):
+        self.post([{'nombre': 'Efectivo', 'salida': '100'}], caja=self.banco)
+
+        response = self.post([{'nombre': 'Banco', 'entrada': '100'}], caja=self.efectivo)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data, [])
+        self.assertEqual(Registro.objects.filter(caja=self.banco).count(), 1)
+        self.assertEqual(Registro.objects.filter(caja=self.efectivo).count(), 1)
+
+    def test_extracto_de_la_otra_caja_concilia_cada_mc_igual_una_sola_vez(self):
+        # Dos transferencias iguales el mismo día, cargadas desde Banco
+        self.post([{'nombre': 'Efectivo', 'salida': '100'}, {'nombre': 'Efectivo', 'salida': '100'}], caja=self.banco)
+
+        # El extracto de Efectivo tiene esas dos y una tercera que no estaba en el de Banco
+        response = self.post([{'nombre': 'Banco', 'entrada': '100'}] * 3, caja=self.efectivo)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Registro.objects.filter(caja=self.banco).count(), 3)
+        self.assertEqual(Registro.objects.filter(caja=self.efectivo).count(), 3)
