@@ -24,6 +24,7 @@ from .. import recibopdf
 from rest_framework.pagination import PageNumberPagination
 from django_filters import rest_framework as drf_filters
 from decimal import Decimal
+from ..serializers import MONEDA_REAL_ID
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -611,14 +612,17 @@ class DolarMEPList(generics.ListCreateAPIView):
             return Response({'detail': 'Ya existe una cotización para la fecha especificada'}, status=status.HTTP_400_BAD_REQUEST)
         
         fecha_parts = fecha.split('-')
-        registros = Registro.objects.filter(fecha_reg=fecha)
+        # Solo registros activos de cajas en moneda extranjera: en cajas en R$ el TC informado no convierte ni genera diferencia de cambio
+        registros = (Registro.objects.filter(fecha_reg=fecha, activo=True)
+                     .exclude(caja__moneda_id=MONEDA_REAL_ID)
+                     .exclude(imputacion__imputacion='Diferencia de cambio'))
         tc_mep = Decimal(request.data.get('compra'))
         try:
             for reg in registros:
                 # Obtengo el tipo de cambio del registro
                 tc_reg = reg.tipo_de_cambio
                 # Si el valor obtenido no es nulo y es distinto del tc MEP del día
-                if tc_reg and tc_reg > 1 and tc_reg != tc_mep:
+                if tc_reg and tc_reg > 1 and tc_reg != tc_mep and reg.monto_op_rec is not None:
                     # Calcular la diferencia de cambio
                     dif = ((tc_mep - tc_reg) * (reg.monto_op_rec / tc_reg)).quantize(Decimal('0.01'))
 
@@ -709,7 +713,7 @@ class DolarMEPList(generics.ListCreateAPIView):
                             return Response(reg_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
                         
                 # Si el registro es en USD y el tipo de cambio es 1, quiere decir que le falta el TC, entonces multiplicamos los montos por el TC MEP y guardamos el TC
-                elif reg.moneda.nombre == "U$D" and tc_reg and tc_reg == 1:
+                elif (tc_reg or 1) == 1:
                     try:
                         reg.tipo_de_cambio = tc_mep
                         reg.monto_gasto_ingreso_neto = (reg.monto_gasto_ingreso_neto * tc_mep).quantize(Decimal('0.0001')) if reg.monto_gasto_ingreso_neto else None

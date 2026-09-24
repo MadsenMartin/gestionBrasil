@@ -17,6 +17,7 @@ import { Registro } from "@/types/genericos"
 import { Loader2 } from "lucide-react"
 import { combinacionesDisabled } from "./validacion"
 import { comboboxField } from "../documentos/formNuevoDocumento"
+import { ResumenTipoDeCambio } from "./resumenTipoDeCambio"
 
 const formSchema = z.object({
     caja: z.number(),
@@ -68,6 +69,15 @@ export function DialogoUpdateRegistro({ toast, trigger, updateItem, initialData 
             if (initialData && open) {
                 const response = await get_registro_data(initialData.id)
                 if (response.status === 200) {
+                    // En cajas en moneda extranjera el formulario trabaja en la moneda de la caja (USD):
+                    // si el registro ya está convertido a R$ (TC ≠ 1) se muestran los montos divididos por el TC
+                    const monedaRegistro = response.data.moneda || 1
+                    const tcRegistro = Number(response.data.tipo_de_cambio) || 1
+                    const aMonedaCaja = (valor: string | null) => {
+                        const monto = Number(valor || 0)
+                        return monedaRegistro !== 1 ? Math.round(monto / tcRegistro * 10000) / 10000 : monto
+                    }
+                    setMoneda(monedaRegistro)
                     setDefaultValues(
                         {
                             caja: response.data.caja || 0,
@@ -81,11 +91,11 @@ export function DialogoUpdateRegistro({ toast, trigger, updateItem, initialData 
                             fecha_reg: response.data.fecha_reg || "",
                             añomes_imputacion: response.data.añomes_imputacion || "",
                             observacion: response.data.observacion || "",
-                            monto_gasto_ingreso_neto: response.data.monto_gasto_ingreso_neto || 0,
-                            iva_gasto_ingreso: response.data.iva_gasto_ingreso || 0,
-                            monto_op_rec: response.data.monto_op_rec || 0,
-                            moneda: response.data.moneda || 1,
-                            tipo_de_cambio: response.data.tipo_de_cambio || 1
+                            monto_gasto_ingreso_neto: aMonedaCaja(response.data.monto_gasto_ingreso_neto),
+                            iva_gasto_ingreso: aMonedaCaja(response.data.iva_gasto_ingreso),
+                            monto_op_rec: aMonedaCaja(response.data.monto_op_rec),
+                            moneda: monedaRegistro,
+                            tipo_de_cambio: tcRegistro
                         }
                     )
                     if (response.data.presupuesto) {
@@ -155,6 +165,8 @@ export function DialogoUpdateRegistro({ toast, trigger, updateItem, initialData 
     const montoGastoIngresoNeto = form.watch('monto_gasto_ingreso_neto');
     const ivaGastoIngreso = form.watch('iva_gasto_ingreso');
     const tipoDeCambio = form.watch('tipo_de_cambio');
+    const montoOpRec = form.watch('monto_op_rec');
+    const fechaReg = form.watch('fecha_reg');
 
     useEffect(() => {
         if (presupuesto === undefined) {
@@ -184,8 +196,12 @@ export function DialogoUpdateRegistro({ toast, trigger, updateItem, initialData 
             const diff = {};
             
             // Incluir cambios normales
+            // Los montos y el TC se comparan contra lo cargado en el formulario: en cajas en USD se muestran convertidos
+            // y el backend los recalcula en R$, así que solo se envían si el usuario los modificó
+            const camposMonetarios = ['monto_gasto_ingreso_neto', 'iva_gasto_ingreso', 'monto_op_rec', 'tipo_de_cambio']
             for (const key in values) {
-                if (values[key] !== initialData[key]) {
+                const original = camposMonetarios.includes(key) ? defaultValues?.[key] : initialData[key]
+                if (values[key] !== original) {
                     diff[key] = values[key];
                 }
             }
@@ -442,9 +458,6 @@ export function DialogoUpdateRegistro({ toast, trigger, updateItem, initialData 
                                                                 <FormControl>
                                                                     <Input type="number" placeholder='Tipo de cambio' {...field} />
                                                                 </FormControl>
-                                                                <FormDescription>
-                                                                    En caso de dejar 1 se tomará la cotización MEP cargada/ a cargar
-                                                                </FormDescription>
                                                                 <FormMessage />
                                                             </FormItem>
                                                         }}
@@ -505,6 +518,15 @@ export function DialogoUpdateRegistro({ toast, trigger, updateItem, initialData 
                                                     />
                                                 </div>
                                             }
+                                            <ResumenTipoDeCambio
+                                                moneda={moneda}
+                                                fecha={fechaReg}
+                                                tipoDeCambio={tipoDeCambio}
+                                                neto={montoGastoIngresoNeto}
+                                                iva={ivaGastoIngreso}
+                                                opRec={montoOpRec}
+                                                modo="edicion"
+                                            />
                                         </CardContent>
                                     </Card>
                                 }

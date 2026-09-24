@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework import permissions
 from django.db import transaction
 from iva.models import ClienteProyecto, Imputacion, Persona
-from tesoreria.serializers import RegistroSerializer
+from tesoreria.serializers import RegistroSerializer, crear_diferencia_de_cambio, es_caja_en_reales, get_tc_mep
 from tesoreria.models import Caja, DolarMEP, Presupuesto, Registro
 from tesoreria.serializers.carga_caja import CargaCajaSerializer
 from django.db.models import Q
@@ -176,6 +176,27 @@ class CargaCaja(APIView):
         return registro
 
 
+    def diferencia_de_cambio(self, registro: Registro):
+        """
+        Igual que en la carga individual: si el registro es de una caja en moneda extranjera con TC informado
+        y hay MEP del día distinto, crea la diferencia de cambio.
+        """
+        tc = registro.tipo_de_cambio
+        tc_mep = get_tc_mep(registro.fecha_reg)
+        if es_caja_en_reales(registro.caja) or not tc_mep or tc <= 1 or tc == tc_mep:
+            return
+        crear_diferencia_de_cambio({
+            'tipo_reg': registro.tipo_reg,
+            'caja': registro.caja,
+            'fecha_reg': registro.fecha_reg,
+            'añomes_imputacion': registro.añomes_imputacion,
+            'unidad_de_negocio': registro.unidad_de_negocio,
+            'cliente_proyecto': registro.cliente_proyecto,
+            'proveedor': registro.proveedor,
+            'caja_contrapartida': registro.caja_contrapartida,
+            'monto_op_rec': registro.monto_op_rec,
+        }, tc, tc_mep)
+
     def post(self, request, *args, **kwargs):
 
         serializer = CargaCajaSerializer(data=request.data)
@@ -205,7 +226,7 @@ class CargaCaja(APIView):
                         if mc:
                             registros.append(mc)
 
-                        registros.append(Registro.objects.create(
+                        registro = Registro.objects.create(
                             fecha_reg=item['fecha'],
                             añomes_imputacion=item['fecha'].strftime('%Y%m'),
                             tipo_reg=item['tipo_reg'],
@@ -223,7 +244,9 @@ class CargaCaja(APIView):
                             moneda=caja.moneda,
                             realizado=True,
                             tipo_de_cambio=tc if tc else Decimal('1.0')
-                        ))
+                        )
+                        registros.append(registro)
+                        self.diferencia_de_cambio(registro)
 
                     return Response(RegistroSerializer(registros, many=True).data, status=201)
             

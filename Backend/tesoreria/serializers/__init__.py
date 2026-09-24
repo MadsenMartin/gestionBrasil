@@ -5,11 +5,33 @@ from iva.serializers import DocumentoSerializer
 from django.contrib.auth.models import User
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
+from decimal import Decimal
 
 class SaldoCajaSerializer(serializers.ModelSerializer):
     class Meta:
         model = SaldoCaja
         fields = "__all__"
+
+MONEDA_REAL_ID = 1
+MONTOS_REGISTRO = ('monto_gasto_ingreso_neto', 'iva_gasto_ingreso', 'monto_op_rec')
+
+def es_caja_en_reales(caja) -> bool:
+    return caja is not None and caja.moneda_id == MONEDA_REAL_ID
+
+def es_diferencia_de_cambio(imputacion) -> bool:
+    # imputacion puede llegar como instancia o como slug, según el serializer
+    return imputacion is not None and str(getattr(imputacion, 'imputacion', imputacion)) == 'Diferencia de cambio'
+
+def get_tc_mep(fecha):
+    mep = DolarMEP.objects.filter(fecha=fecha).first()
+    return mep.compra if mep else None
+
+def convertir_montos(data: dict, tc) -> None:
+    '''Multiplica los montos presentes en data por tc (de moneda de la caja a R$).'''
+    tc = Decimal(str(tc))
+    for campo in MONTOS_REGISTRO:
+        if data.get(campo) is not None:
+            data[campo] = (Decimal(str(data[campo])) * tc).quantize(Decimal('0.0001'))
 
 def crear_registro(reg_data: dict, list_bool: bool) -> None:
     # Si el serializer es RegistroSerializer, se crea el registro con el serializer, ya que reg_data tiene ids en los campos de ForeignKey, y debe convertirlos en instancias
@@ -20,177 +42,185 @@ def crear_registro(reg_data: dict, list_bool: bool) -> None:
         else:
             transaction.set_rollback(True)
             raise ValidationError(reg_serializer.errors)
-        
-    # Si el serializer es RegistroCrudSerializer, se crea el registro directamente desde el modelo, ya que reg_data tiene instancias en todos los campos de ForeignKey
-    else:
-        Registro.objects.create(**reg_data)
 
-def convertir_a_ars(validated_data: dict, tc_reg: float) -> dict:
-    if validated_data.get('monto_gasto_ingreso_neto') is not None:
-        validated_data['monto_gasto_ingreso_neto'] = tc_reg * float(validated_data['monto_gasto_ingreso_neto'])
-    if validated_data.get('iva_gasto_ingreso') is not None:
-        validated_data['iva_gasto_ingreso'] = tc_reg * float(validated_data['iva_gasto_ingreso'])
-    if validated_data.get('monto_op_rec') is not None:
-        validated_data['monto_op_rec'] = tc_reg * float(validated_data['monto_op_rec'])
+    # Si el serializer es RegistroCrudSerializer, se crea el registro directamente desde el modelo, ya que reg_data tiene instancias en todos los campos de ForeignKey
+    # salvo moneda (id) y documento (lista de ids, M2M), que no se pueden pasar a create
+    else:
+        documentos = reg_data.pop('documento', None)
+        reg_data['moneda_id'] = reg_data.pop('moneda')
+        registro = Registro.objects.create(**reg_data)
+        if documentos:
+            registro.documento.set(documentos)
+
+def crear_diferencia_de_cambio(validated_data: dict, tc_reg, tc_mep, list_bool: bool = True) -> None:
+    '''
+    Crea el/los registro/s de diferencia de cambio entre el TC informado en el registro (tc_reg) y el MEP del día (tc_mep).
+    validated_data debe tener los montos ya convertidos a R$.
+    '''
+    if validated_data.get('monto_op_rec') is None:
+        return
+
+    # Calculamos la diferencia de cambio
+    dif = round((float(tc_mep) - float(tc_reg)) * (float(validated_data.get('monto_op_rec'))/float(tc_reg)),2)
+    if dif == 0:
+        return
+
+    # En ambos serializers validated_data['documento'] es una lista de instancias
+    documentos_ids: list[int] = [doc.id for doc in validated_data.get('documento')] if validated_data.get('documento') else []
+    documentos = Documento.objects.filter(id__in=documentos_ids)
+
+    # list_bool es un booleano que indica si el serializer es RegistroCrudSerializer (True) o RegistroSerializer (False)
+    # Si el serializer es RegistroCrudSerializer, los registros de diferencia se crean directamente desde el modelo, por lo que hace falta la instancia de imputación
+    imputacion = Imputacion.objects.get(imputacion='Diferencia de cambio') if list_bool else 'Diferencia de cambio'
+
+    # Definimos el diccionario de clientes, que va a contener como clave el cliente y como valor el monto que le corresponde
+    clientes = {}
+
+    # Si hay documentos, se calcula la proporción de la diferencia de cambio que le corresponde a cada cliente
+    if documentos:
+
+        # Calculamos el total de los documentos
+        total_docs = sum([float(documento.total) for documento in documentos])
+
+        # Iterar sobre los documentos para obtener la proporción de la diferencia de cambio que le corresponde a cada cliente, rellenando el diccionario de clientes definido anteriormente
+        for documento in documentos:
+            if documento.cliente_proyecto not in clientes:
+                # Si el cliente del documento no está en el diccionario, se agrega con el monto correspondiente
+                clientes[documento.cliente_proyecto] = round(float(documento.total)/total_docs * dif,2)
+            else:
+                # Si el cliente del documento ya está en el diccionario, se suma el monto correspondiente
+                clientes[documento.cliente_proyecto] += round(float(documento.total)/total_docs * dif,2)
+
+        # Iterar sobre el diccionario de clientes para crear los registros de diferencia de cambio
+        for cliente in clientes:
+
+            # Filtramos los documentos obtenidos anteriormente, para obtener los que corresponden al cliente actual
+            docs = documentos.filter(cliente_proyecto=cliente)
+
+            # Definimos el diccionario del registro de diferencia de cambio a crear
+            reg_data = {
+                'tipo_reg': 'PSF' if validated_data.get('tipo_reg') in ['PSF','OP','OPFC'] else 'ISF',
+                'caja': validated_data.get('caja'),
+                'documento': [doc.id for doc in docs],
+                'fecha_reg': validated_data.get('fecha_reg'),
+                'añomes_imputacion': validated_data.get('añomes_imputacion'),
+                'unidad_de_negocio': validated_data.get('unidad_de_negocio') if validated_data.get('unidad_de_negocio') else docs[0].unidad_de_negocio,
+                'cliente_proyecto': cliente,
+                'proveedor': validated_data.get('proveedor'),
+                'imputacion': imputacion,
+                'observacion': 'Diferencia de cambio',
+                'realizado': True,
+
+                # Obtenemos el monto que le corresponde al cliente desde el diccionario de clientes
+                'monto_gasto_ingreso_neto': clientes[cliente],
+                'monto_op_rec': clientes[cliente],
+
+                'tipo_de_cambio': tc_reg,
+                'moneda': MONEDA_REAL_ID,
+            }
+
+            # Creamos el registro
+            crear_registro(reg_data, list_bool)
+
+    # Si no hay documentos, quiere decir que estamos creando un registro que debe especificar cliente (PSF, OPFC, ISF, etc...), asique obtenemos los datos desde el mismo registro
+    # A no ser que se trate de un MC
+    else:
+        if validated_data.get('tipo_reg') == 'MC':
+            if validated_data.get('monto_op_rec') > 0: return
+            reg_data={
+                'tipo_reg': 'ISF',
+                'caja': validated_data.get('caja'),
+                'fecha_reg': validated_data.get('fecha_reg'),
+                'añomes_imputacion': validated_data.get('añomes_imputacion'),
+                'unidad_de_negocio': UnidadDeNegocio.objects.get(unidad_de_negocio='Indirectos'),
+                'cliente_proyecto': ClienteProyecto.objects.get(cliente_proyecto='Indirectos'),
+                'caja_contrapartida': validated_data.get('caja_contrapartida'),
+                'imputacion': imputacion,
+                'observacion': 'Diferencia de cambio',
+                'monto_gasto_ingreso_neto': dif,
+                'monto_op_rec': dif,
+                'tipo_de_cambio': tc_reg,
+                'realizado': True,
+                'moneda': MONEDA_REAL_ID,
+            }
+        else:
+            reg_data = {
+                'tipo_reg': 'PSF' if validated_data.get('tipo_reg') in ['PSF','OP','OPFC'] else 'ISF',
+                'caja': validated_data.get('caja'),
+                'fecha_reg': validated_data.get('fecha_reg'),
+                'añomes_imputacion': validated_data.get('añomes_imputacion'),
+                'unidad_de_negocio': validated_data.get('unidad_de_negocio') if 'unidad_de_negocio' in validated_data else None,
+                'cliente_proyecto': validated_data.get('cliente_proyecto') if 'cliente_proyecto' in validated_data else None,
+                'proveedor': validated_data.get('proveedor') if 'proveedor' in validated_data else None,
+                'imputacion': imputacion,
+                'observacion': 'Diferencia de cambio',
+                'monto_gasto_ingreso_neto': dif,
+                'monto_op_rec': dif,
+                'tipo_de_cambio': tc_reg,
+                'realizado': True,
+                'moneda': MONEDA_REAL_ID,
+            }
+
+        # Creamos el registro
+        crear_registro(reg_data, list_bool)
 
 @transaction.atomic
-def aplicar_logica_tipo_cambio(validated_data: dict, list_bool: bool = True) -> tuple:
+def aplicar_logica_tipo_cambio(validated_data: dict, list_bool: bool = True) -> dict:
     '''
-    Método que verifica si corresponde aplicar la lógica de diferencia de cambio, y en caso afirmativo, crea el/los registro/s correspondiente/s.
+    Convierte a R$ los montos de un registro nuevo de una caja en moneda extranjera y, si corresponde, crea la diferencia de cambio.
+    - Caja en R$: los montos quedan como vienen. El TC informado se guarda (db_total lo usa para calcular USD) pero no convierte nada.
+    - Caja en USD con TC informado (distinto de 1): se multiplica por ese TC. Si hay MEP del día y es distinto, se crea la diferencia de cambio.
+    - Caja en USD con TC 1: si hay MEP del día se multiplica por el MEP; si no, queda en USD hasta que se cargue el MEP (ver DolarMEPList.post).
     '''
     try:
-        # Verificamos si corresponde aplicar la lógica
-        if validated_data.get('tipo_de_cambio') not in [1, None] and (validated_data.get('imputacion') and validated_data.get('imputacion').imputacion != 'Diferencia de cambio' or not validated_data.get('imputacion') if list_bool else str(validated_data.get('imputacion')) != 'Diferencia de cambio' ):
+        if es_caja_en_reales(validated_data.get('caja')) or es_diferencia_de_cambio(validated_data.get('imputacion')):
+            return validated_data
 
-            tc_reg = float(validated_data.get('tipo_de_cambio'))
+        tc_reg = validated_data.get('tipo_de_cambio') or 1
+        tc_mep = get_tc_mep(validated_data.get('fecha_reg'))
 
-            # Si llegamos hasta acá quiere decir que se está cargando un registro en USD, por lo que hay que convertir los montos a ARS
-            # Esta es la única modificación que se realiza sobre validated_data
-            convertir_a_ars(validated_data, tc_reg)
-
-            # Obtenemos el tipo de cambio MEP
-            tc_diario_obj = DolarMEP.objects.filter(fecha=validated_data.get('fecha_reg')).first()
-            tc_mep = float(tc_diario_obj.compra) if tc_diario_obj else None
-
-            # Si no hay tipo de cambio para la fecha, retornar
-            if not tc_mep:
-                return validated_data
-            
-            # Comprobamos si hay diferencia de cambio
-            if tc_reg and tc_reg > 1 and tc_mep != tc_reg:
-
-                # Calculamos la diferencia de cambio
-                dif = round((tc_mep - tc_reg) * (float(validated_data.get('monto_op_rec'))/tc_reg),2)
-
-                # list_bool es un booleano que indica si el serializer es RegistroCrudSerializer (True) o RegistroSerializer (False)
-                if not list_bool:
-
-                    # Si el serializer es RegistroSerializer recibimos una lista de ids de documentos, por lo que hay que obtener los objetos
-                    documentos_ids: list[int] = [doc.id for doc in validated_data.get('documento')] if validated_data.get('documento') else []
-                    documentos: list[Documento] = Documento.objects.filter(id__in=documentos_ids)
-
-                    # Ver explicación en el else
-                    imputacion = 'Diferencia de cambio'
-
-                else: 
-                    # Si el serializer es RegistroCrudSerializer recibimos una lista de objetos de documentos
-                    documentos: list[Documento] = validated_data.get('documento')
-
-                    # Si el serializer es RegistroCrudSerializer, en validated_data obtenemos instancias en todos campos que son ForeignKeys
-                    # Por esta razón es necesario obtener la instancia de imputación, para luego crear los registros de diferencia directamente desde el modelo de Registro, sin pasar por el serializer
-                    imputacion = Imputacion.objects.get(imputacion='Diferencia de cambio')
-
-                # Definimos el diccionario de clientes, que va a contener como clave el cliente y como valor el monto que le corresponde
-                clientes = {}
-
-                # Si hay documentos, se calcula la proporción de la diferencia de cambio que le corresponde a cada cliente
-                # Comprobar si hay documentos
-                if documentos:
-
-                    # Calculamos el total de los documentos
-                    total_docs = sum([float(documento.total) for documento in documentos])
-
-                    # Iterar sobre los documentos para obtener la proporción de la diferencia de cambio que le corresponde a cada cliente, rellenando el diccionario de clientes definido anteriormente
-                    for documento in documentos:
-                        if documento.cliente_proyecto not in clientes:
-                            # Si el cliente del documento no está en el diccionario, se agrega con el monto correspondiente
-                            clientes[documento.cliente_proyecto] = round(float(documento.total)/total_docs * dif,2)
-                        else:
-                            # Si el cliente del documento ya está en el diccionario, se suma el monto correspondiente
-                            clientes[documento.cliente_proyecto] += round(float(documento.total)/total_docs * dif,2)
-
-                    # Iterar sobre el diccionario de clientes para crear los registros de diferencia de cambio
-                    for cliente in clientes:
-
-                        # Filtramos los documentos obtenidos anteriormente, para obtener los que corresponden al cliente actual
-                        docs = documentos.filter(cliente_proyecto=cliente)
-
-                        # Definimos el diccionario del registro de diferencia de cambio a crear
-                        reg_data = {
-                            'tipo_reg': 'PSF' if validated_data.get('tipo_reg') in ['PSF','OP','OPFC'] else 'ISF',
-                            'caja': validated_data.get('caja'),
-                            'documento': [doc.id for doc in docs],
-                            'fecha_reg': validated_data.get('fecha_reg'),
-                            'añomes_imputacion': validated_data.get('añomes_imputacion'),
-                            'unidad_de_negocio': validated_data.get('unidad_de_negocio') if validated_data.get('unidad_de_negocio') else docs[0].unidad_de_negocio,
-                            'cliente_proyecto': cliente,
-                            'proveedor': validated_data.get('proveedor'),
-                            'imputacion': imputacion,
-                            'observacion': 'Diferencia de cambio',
-                            'realizado': True,
-
-                            # Obtenemos el monto que le corresponde al cliente desde el diccionario de clientes
-                            'monto_gasto_ingreso_neto': clientes[cliente],
-                            'monto_op_rec': clientes[cliente],
-
-                            'tipo_de_cambio': tc_reg,
-                            'moneda': 1,
-                        }
-
-                        # Creamos el registro
-                        crear_registro(reg_data, list_bool)
-                
-                # Si no hay documentos, quiere decir que estamos creando un registro que debe especificar cliente (PSF, OPFC, ISF, etc...), asique obtenemos los datos desde el mismo registro
-                # A no ser que se trate de un MC
-                else:
-                    if validated_data.get('tipo_reg') == 'MC':
-                        if validated_data.get('monto_op_rec') > 0: return validated_data
-                        reg_data={
-                            'tipo_reg': 'ISF',
-                            'caja': validated_data.get('caja'),
-                            'fecha_reg': validated_data.get('fecha_reg'),
-                            'añomes_imputacion': validated_data.get('añomes_imputacion'),
-                            'unidad_de_negocio': UnidadDeNegocio.objects.get(unidad_de_negocio='Indirectos'),
-                            'cliente_proyecto': ClienteProyecto.objects.get(cliente_proyecto='Indirectos'),
-                            'caja_contrapartida': validated_data.get('caja_contrapartida'),
-                            'imputacion': imputacion,
-                            'observacion': 'Diferencia de cambio',
-                            'monto_gasto_ingreso_neto': dif,
-                            'monto_op_rec': dif,
-                            'tipo_de_cambio': tc_reg,
-                            'realizado': True,
-                            'moneda': 1,
-                        }
-                    else: 
-                        reg_data = {
-                            'tipo_reg': 'PSF' if validated_data.get('tipo_reg') in ['PSF','OP','OPFC'] else 'ISF',
-                            'caja': validated_data.get('caja'),
-                            'fecha_reg': validated_data.get('fecha_reg'),
-                            'añomes_imputacion': validated_data.get('añomes_imputacion'),
-                            'unidad_de_negocio': validated_data.get('unidad_de_negocio') if 'unidad_de_negocio' in validated_data else None,
-                            'cliente_proyecto': validated_data.get('cliente_proyecto') if 'cliente_proyecto' in validated_data else None,
-                            'proveedor': validated_data.get('proveedor') if 'proveedor' in validated_data else None,
-                            'imputacion': imputacion,
-                            'observacion': 'Diferencia de cambio',
-                            'monto_gasto_ingreso_neto': dif,
-                            'monto_op_rec': dif,
-                            'tipo_de_cambio': tc_reg,
-                            'realizado': True,
-                            'moneda': 1,
-                        }
-
-                    # Creamos el registro
-                    crear_registro(reg_data, list_bool)
-
-                return validated_data
-        if validated_data.get('moneda') == 2 and validated_data.get('tipo_de_cambio') == 1.00:
-            # Si la moneda es USD y el tipo de cambio es 1, quiere decir que se está cargando un registro en ARS, por lo que hay que convertir los montos a USD
-            tc_diario_obj = DolarMEP.objects.filter(fecha=validated_data.get('fecha_reg')).first()
-            tc_mep = float(tc_diario_obj.compra) if tc_diario_obj else None
-            if not tc_mep:
-                return validated_data
-            
-            validated_data['monto_gasto_ingreso_neto'] = round(float(validated_data.get('monto_gasto_ingreso_neto')) * tc_mep,2)
-            validated_data['iva_gasto_ingreso'] = round(float(validated_data.get('iva_gasto_ingreso')) * tc_mep,2)
-            validated_data['monto_op_rec'] = round(float(validated_data.get('monto_op_rec')) * tc_mep,2)
+        if tc_reg != 1:
+            convertir_montos(validated_data, tc_reg)
+            if tc_mep and tc_reg > 1 and tc_mep != tc_reg:
+                crear_diferencia_de_cambio(validated_data, tc_reg, tc_mep, list_bool)
+        elif tc_mep:
+            convertir_montos(validated_data, tc_mep)
             validated_data['tipo_de_cambio'] = tc_mep
 
         return validated_data
-    
+
     # Si hay algún error, se hace rollback de la transacción (Se deshacen los cambios en la DB) y se lanza la excepción
     except Exception as e:
         transaction.set_rollback(True)
         raise e
+
+def recalcular_montos_update(instance: Registro, validated_data: dict) -> dict:
+    '''
+    Recalcula los montos en R$ al editar un registro de una caja en moneda extranjera, con las mismas reglas que la creación.
+    Los montos que vienen en validated_data están en la moneda de la caja (USD); los que no vienen se toman del registro
+    y se pasan a USD dividiendo por el TC anterior.
+    No crea ni ajusta registros de diferencia de cambio.
+    '''
+    caja = validated_data.get('caja', instance.caja)
+    imputacion = validated_data.get('imputacion', instance.imputacion)
+    if es_caja_en_reales(caja) or es_caja_en_reales(instance.caja) or es_diferencia_de_cambio(imputacion):
+        return validated_data
+
+    tc_anterior = instance.tipo_de_cambio or Decimal(1)
+    tc_nuevo = validated_data.get('tipo_de_cambio', instance.tipo_de_cambio) or Decimal(1)
+    if tc_nuevo == 1:
+        tc_nuevo = get_tc_mep(validated_data.get('fecha_reg', instance.fecha_reg)) or Decimal(1)
+
+    if tc_nuevo == tc_anterior and not any(campo in validated_data for campo in MONTOS_REGISTRO):
+        return validated_data
+
+    for campo in MONTOS_REGISTRO:
+        if campo not in validated_data:
+            actual = getattr(instance, campo)
+            validated_data[campo] = actual / tc_anterior if actual is not None else None
+    convertir_montos(validated_data, tc_nuevo)
+    validated_data['tipo_de_cambio'] = tc_nuevo
+    return validated_data
 
 class RegistroCrudSerializer(serializers.ModelSerializer):
 
@@ -204,8 +234,8 @@ class RegistroCrudSerializer(serializers.ModelSerializer):
             # Si instance es None quiere decir que se está creando un nuevo registro, por lo que se aplica la lógica de tipo de cambio
             validated_data = aplicar_logica_tipo_cambio(self.validated_data)
         else:
-            # Caso contrario, se está editando un registro existente, por lo que no se aplica la lógica de tipo de cambio
-            validated_data = self.validated_data
+            # Caso contrario, se está editando un registro existente: se recalculan los montos en R$ con las mismas reglas que al crear
+            validated_data = recalcular_montos_update(instance, self.validated_data)
         self.validated_data.update(validated_data)
         instance = super().save(**kwargs)
 

@@ -16,6 +16,7 @@ import { ComboboxAPI, ComboboxAPIFormless } from "../comboboxes/ComboboxAPI"
 import { CircleX, Loader2 } from "lucide-react"
 import { combinacionesDisabled } from "./validacion"
 import { Separator } from "../ui/separator"
+import { ResumenTipoDeCambio } from "./resumenTipoDeCambio"
 
 const formSchema = z.object({
   caja: z.coerce.number().min(1, 'Campo requerido'),
@@ -104,6 +105,8 @@ export function DialogoNuevoRegistro({ toast, trigger, addItem }: DialogNuevoReg
   const montoGastoIngresoNeto = form.watch('monto_gasto_ingreso_neto');
   const ivaGastoIngreso = form.watch('iva_gasto_ingreso');
   const tipoDeCambio = form.watch('tipo_de_cambio');
+  const montoOpRec = form.watch('monto_op_rec');
+  const fechaReg = form.watch('fecha_reg');
 
   useEffect(() => {
     if (presupuesto === undefined) {
@@ -416,7 +419,7 @@ export function DialogoNuevoRegistro({ toast, trigger, addItem }: DialogNuevoReg
                                 <Input type="number" placeholder='Tipo de cambio' {...field} />
                               </FormControl>
                               <FormDescription>
-                                En caso de dejar 1 se tomará la cotización MEP cargada/ a cargar
+                                Dejá 1 para usar la cotización MEP del día
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
@@ -478,6 +481,15 @@ export function DialogoNuevoRegistro({ toast, trigger, addItem }: DialogNuevoReg
                         />
                       </div>
                     }
+                    <ResumenTipoDeCambio
+                      moneda={moneda}
+                      fecha={fechaReg}
+                      tipoDeCambio={tipoDeCambio}
+                      neto={montoGastoIngresoNeto}
+                      iva={ivaGastoIngreso}
+                      opRec={montoOpRec}
+                      modo="alta"
+                    />
                   </CardContent>
                 </Card>
               }
