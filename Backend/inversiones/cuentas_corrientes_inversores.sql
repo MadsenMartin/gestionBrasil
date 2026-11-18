@@ -35,31 +35,18 @@ gastos_directos AS (
         COALESCE(ai_i.nombre, i.nombre) AS inversor,
         mep.compra AS tipo_de_cambio_mep,
 
-        -- Cuando el registro tiene tipo de cambio propio, lo usamos; si no, usamos el MEP
+        -- Conversión a USD:
+        --  * TC 1 y moneda USD: el registro quedó en USD sin convertir (no había MEP al cargarlo) -> monto tal cual
+        --  * TC propio distinto de 1: monto / TC del registro
+        --  * resto (TC NULL o 1 en cajas en R$, p.ej. Caja Lucas BRL): monto / MEP del día
         CASE
-            WHEN tr.tipo_de_cambio IS NOT NULL THEN
-                CASE
-                    WHEN tr.tipo_de_cambio <> 1 THEN
-                        CASE
-                            WHEN (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) IS NOT NULL THEN
-                                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) / tr.tipo_de_cambio
-                            ELSE NULL
-                        END
-                    WHEN tr.tipo_de_cambio = 1 AND tr.moneda_id = 2 THEN
-                        COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)
-                    ELSE
-                        NULL
-                END
             WHEN tr.tipo_de_cambio = 1 AND tr.moneda_id = 2 THEN
-                COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0))
+            WHEN tr.tipo_de_cambio IS NOT NULL AND tr.tipo_de_cambio <> 1 THEN
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) / tr.tipo_de_cambio
             WHEN mep.compra IS NOT NULL THEN
-                CASE
-                    WHEN (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) IS NOT NULL THEN
-                        (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) / mep.compra
-                    ELSE NULL
-                END
-            ELSE
-                NULL
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) + COALESCE(tr.iva_gasto_ingreso, 0)) / mep.compra
+            ELSE NULL
         END AS total_gasto_ingreso_dolar,
 
         COALESCE(pi.porcentaje, 100) AS porcentaje,
@@ -126,8 +113,11 @@ gastos_indirectos AS (
         -- Inversor: si es asiento de inversor usa ai_i, sino usa i del porcentaje
         COALESCE(ai_i.nombre, i.nombre) AS inversor,
         mep.compra AS tipo_de_cambio_mep,
+        -- Misma lógica de conversión a USD que en gastos_directos
         CASE
-            WHEN tr.tipo_de_cambio IS NOT NULL AND tr.tipo_de_cambio != 1 THEN
+            WHEN tr.tipo_de_cambio = 1 AND tr.moneda_id = 2 THEN
+                (COALESCE(tr.monto_gasto_ingreso_neto, 0) * pgi.porcentaje / 100 + COALESCE(tr.iva_gasto_ingreso, 0) * pgi.porcentaje / 100)
+            WHEN tr.tipo_de_cambio IS NOT NULL AND tr.tipo_de_cambio <> 1 THEN
                 (COALESCE(tr.monto_gasto_ingreso_neto, 0) * pgi.porcentaje / 100 + COALESCE(tr.iva_gasto_ingreso, 0) * pgi.porcentaje / 100) / tr.tipo_de_cambio
             WHEN mep.compra IS NOT NULL THEN
                 (COALESCE(tr.monto_gasto_ingreso_neto, 0) * pgi.porcentaje / 100 + COALESCE(tr.iva_gasto_ingreso, 0) * pgi.porcentaje / 100) / mep.compra
