@@ -90,6 +90,8 @@ type ModelFilterReturn = {
     queryKey: any,
     asignarRef: (i: number) => any
     deleteItem: (deletedItemId: number) => void
+    extraParams: Record<string, string>,
+    setExtraParams: (params: Record<string, string>) => void
 }
 
 /**
@@ -106,6 +108,8 @@ export function TableBuilder(model: string, ordenInicial?, refOffset?): ModelFil
     const debouncedFilters = useDebounce(filters, 600)
     const [search, setSearch] = useState<string>('')
     const debouncedSearch = useDebounce(search, 600)
+    // Parámetros extra que se envían a la API sin pasar por el FilterBuilder (ej: imputado=false)
+    const [extraParams, setExtraParams] = useState<Record<string, string>>({})
 
     const fetchData = async (queryParams = {}) => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -145,6 +149,9 @@ export function TableBuilder(model: string, ordenInicial?, refOffset?): ModelFil
         if (debouncedSearch !== '') {
             queryParams.push(`search=${debouncedSearch}`)
         }
+        Object.entries(extraParams).forEach(([key, value]) => {
+            queryParams.push(`${key}=${value}`)
+        })
         return queryParams.join('&')
     }
 
@@ -261,7 +268,7 @@ export function TableBuilder(model: string, ordenInicial?, refOffset?): ModelFil
         }
     }
 
-    const queryKey = [model, debouncedFilters, debouncedSearch, ordenPor, orden]
+    const queryKey = [model, debouncedFilters, debouncedSearch, ordenPor, orden, extraParams]
 
     const { data, fetchNextPage, isLoading, isFetchingNextPage } = useInfiniteQuery({
         queryKey: queryKey,
@@ -388,5 +395,5 @@ export function TableBuilder(model: string, ordenInicial?, refOffset?): ModelFil
         }
     }, [entry?.isIntersecting, fetchNextPage]);
 
-    return { handleOrdenar, ordenPor, orden, fields: fields[model], headers: headers[model], headersCapitalized: headersCapitalized[model], filters, setFilters, setSearch, data: dataFiltrada, isLoading: (isLoading || isFetchingNextPage), CAMPO_NOMBRE_MAP, queryClient, updateItem, addItem, queryKey, asignarRef, deleteItem }
+    return { handleOrdenar, ordenPor, orden, fields: fields[model], headers: headers[model], headersCapitalized: headersCapitalized[model], filters, setFilters, setSearch, data: dataFiltrada, isLoading: (isLoading || isFetchingNextPage), CAMPO_NOMBRE_MAP, queryClient, updateItem, addItem, queryKey, asignarRef, deleteItem, extraParams, setExtraParams }
 }

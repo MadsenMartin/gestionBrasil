@@ -4,7 +4,7 @@ import { DialogNuevoDocumento } from "./dialgoNuevoDocumento"
 import { TableBuilder } from "../general/modelFilter"
 import { FilterBuilder } from "../presupuestos/tabla/popoverFiltroPresupuestos"
 import { Button } from "../ui/button"
-import { ArrowDown, ArrowUp } from "lucide-react"
+import { ArrowDown, ArrowUp, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DropdownDocumentos } from "./dropdownDocumentos"
 import { ImputarDocumentos } from "./imputarDocumentos"
@@ -22,7 +22,8 @@ export const formatCurrency = (amount: number) => {
 }
 
 export function TablaDocumentos({ toast }: TablaDocumentosProps) {
-  const { handleOrdenar, orden, ordenPor, fields, filters, setFilters, setSearch, data, headersCapitalized, headers, CAMPO_NOMBRE_MAP, asignarRef, addItem, updateItem, deleteItem } = TableBuilder("documentos", "fecha_documento")
+  const { handleOrdenar, orden, ordenPor, fields, filters, setFilters, setSearch, data, headersCapitalized, headers, CAMPO_NOMBRE_MAP, asignarRef, addItem, updateItem, deleteItem, extraParams, setExtraParams } = TableBuilder("documentos", "fecha_documento")
+  const soloImpagas = extraParams.imputado === "false"
   const documentosFiltrados: Documento[] = data
   const { imputar, selectMode, setSelectMode, handleCheck, documentosSeleccionados } = ImputarDocumentos(toast)
 
@@ -36,28 +37,36 @@ export function TablaDocumentos({ toast }: TablaDocumentosProps) {
 
   // Pintar de verde las lineas donde documento.imputado sea true (tiene un registro de caja asociado, generalmente significa que fue pagada)
   const docClassName = (doc: Documento) => {
-    const baseClassName = "hover:bg-gray-100 dark:hover:bg-gray-800"
-    return doc.imputado 
-      ? cn(baseClassName, "bg-green-300 dark:bg-green-950")
-      : baseClassName
+    return doc.imputado
+      ? "bg-green-300 hover:bg-green-400 dark:bg-green-950 dark:hover:bg-green-900"
+      : "hover:bg-gray-100 dark:hover:bg-gray-800"
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <FilterBuilder
-          filters={filters}
-          fields={fields}
-          onChange={setFilters}
-          onReset={() => setFilters([])}
-        />
-        <Input
-          type="text"
-          placeholder="Buscar..."
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-1/3"
-        />
-        <div className="space-x-1">
+      <div className="flex justify-between items-center gap-4 mb-4">
+        <div className="flex items-center gap-2 flex-1">
+          <FilterBuilder
+            filters={filters}
+            fields={fields}
+            onChange={setFilters}
+            onReset={() => setFilters([])}
+          />
+          <Button
+            variant={soloImpagas ? "default" : "outline"}
+            onClick={() => setExtraParams(soloImpagas ? {} : { imputado: "false" })}
+          >
+            {soloImpagas && <Check className="h-4 w-4 mr-1" />}
+            Solo impagas
+          </Button>
+          <Input
+            type="text"
+            placeholder="Buscar..."
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-md"
+          />
+        </div>
+        <div className="flex items-center gap-1">
           <DialogNuevoDocumento toast={toast} addDocumento={addItem} />
           {selectMode &&
             <>

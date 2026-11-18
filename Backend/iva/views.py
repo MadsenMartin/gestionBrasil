@@ -235,6 +235,7 @@ class DocumentoList(generics.ListCreateAPIView):
         'tipo_documento__tipo_documento': ['icontains', 'isnull', 'exact'],
         'concepto': ['icontains', 'isnull', 'exact'],
         'fecha_documento': ['exact', 'isnull'],
+        'imputado': ['exact'],
     }
     search_fields = [
         'numero',
