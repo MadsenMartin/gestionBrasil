@@ -23,7 +23,7 @@ chmod -R 755 media 2>/dev/null || true
 git stash --include-untracked
 
 # Actualizar código
-git pull origin master
+git pull origin main
 
 # Recuperar solo los archivos que queremos mantener locales
 # (.env, *.csv, db.sqlite3)
