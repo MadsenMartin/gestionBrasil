@@ -4,6 +4,8 @@
 #   .\deploy.ps1 --frontend   # sólo el build de Vite
 #   .\deploy.ps1 --backend    # sólo Backend/deploy.sh en el servidor (git pull origin main + rebuild de Docker)
 #
+#   --full                    # reconstruye la imagen del backend desde cero (paquetes del sistema y pip).
+#                             # Sin esto sólo se rehace lo que cambió: unos segundos si sólo cambió código.
 #   --force                   # despliega el backend aunque haya commits sin pushear
 #
 # Las migraciones y el collectstatic los corre docker-entrypoint.sh al levantar el contenedor.
@@ -16,17 +18,19 @@ $remoteFront = '/var/www/gestionBrFront/Frontend/'
 $remoteBackend = '/var/www/gestionBrAPI/Backend'
 
 function Exit-Uso([string]$Msg) {
-    Write-Host "$Msg Uso: .\deploy.ps1 [--frontend] [--backend] [--force]" -ForegroundColor Red
+    Write-Host "$Msg Uso: .\deploy.ps1 [--frontend] [--backend] [--full] [--force]" -ForegroundColor Red
     exit 1
 }
 
 $partes = @()
 $forzar = $false
+$full = $false
 foreach ($a in $args) {
     $o = "$a".TrimStart('-').ToLower()
     switch ($o) {
         { $_ -in 'frontend', 'backend' } { $partes += $o }
         'force' { $forzar = $true }
+        'full' { $full = $true }
         default { Exit-Uso "Opción desconocida: $o." }
     }
 }
@@ -81,9 +85,10 @@ if ($hacerFront) {
 }
 
 if ($hacerBack) {
-    # deploy.sh está versionado con modo 644, así que el git pull le puede sacar el +x: se lo damos siempre.
+    # deploy.sh ya está versionado como ejecutable; el chmod es por las dudas.
     Write-Host 'Desplegando backend (deploy.sh)...' -ForegroundColor Cyan
-    ssh "${remoteUser}@${remoteHost}" "cd $remoteBackend && chmod +x deploy.sh && ./deploy.sh"
+    $extra = if ($full) { ' --full' } else { '' }
+    ssh "${remoteUser}@${remoteHost}" "cd $remoteBackend && chmod +x deploy.sh && ./deploy.sh$extra"
     Test-Error 'deploy.sh'
 }
 

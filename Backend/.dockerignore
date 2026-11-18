@@ -1,0 +1,15 @@
+# Variables: compose las pasa con env_file, no hace falta (ni conviene) meterlas en la imagen
+.env
+.env.*
+*.env
+
+# Se montan desde el host en docker-compose.yml
+static/
+media/
+
+# Locales / generados
+**/__pycache__
+**/*.pyc
+*.sqlite3
+*.csv
+deploy.sh
