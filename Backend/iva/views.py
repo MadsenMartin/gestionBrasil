@@ -10,6 +10,7 @@ from django.http import HttpResponse
 from django.utils.dateparse import parse_date
 
 from shared.models import Moneda, Municipio
+from shared.filters import StableOrderingFilter
 from tesoreria.models import Caja, Registro
 from tesoreria.models.pagos import PagoFactura
 from .models import Documento, EstadoDocumento, Persona, UnidadDeNegocio, ClienteProyecto, Imputacion, TiposDocumento
@@ -221,7 +222,7 @@ class DocumentoList(generics.ListCreateAPIView):
     """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DocumentoSerializer
-    filter_backends = [filters.OrderingFilter, filters.SearchFilter, drf_filters.DjangoFilterBackend]
+    filter_backends = [StableOrderingFilter, filters.SearchFilter, drf_filters.DjangoFilterBackend]
     filterset_fields = {
         'proveedor__razon_social': ['icontains', 'isnull', 'exact'],
         'proveedor__cnpj': ['icontains', 'isnull', 'exact'],

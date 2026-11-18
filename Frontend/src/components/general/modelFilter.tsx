@@ -291,7 +291,17 @@ export function TableBuilder(model: string, ordenInicial?, refOffset?): ModelFil
         refetchOnWindowFocus: false, // Para que no se recargue la página al cambiar de pestaña o ventana
     });
 
-    const dataFiltrada: Registro[]|Presupuesto[]|Documento[] = data?.pages?.flatMap((page) => page.results)
+    // Se eliminan duplicados por id: si un registro llega en dos páginas, las keys repetidas
+    // hacen que React deje filas "fantasma" en la tabla al cambiar de filtro
+    const idsVistos = new Set()
+    const dataFiltrada: Registro[]|Presupuesto[]|Documento[] = data?.pages
+        ?.flatMap((page) => page.results)
+        .filter((item) => {
+            if (item?.id === undefined) return true
+            if (idsVistos.has(item.id)) return false
+            idsVistos.add(item.id)
+            return true
+        })
 
     const queryClient = useQueryClient();
 
